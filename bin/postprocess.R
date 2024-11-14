@@ -17,6 +17,7 @@ source(paste0(path2bin,'/../bin/plotCoverage.R'))
 # load data #############
 pbas = readRDS(args[1])
 pbmeta = readRDS(args[2])
+out.dir = 'rds' # it is passed from previous processes
 
 # load annotation ###############
 gtf = readRDS(paste0(path2ref,'/gtf.rds'))
