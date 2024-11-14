@@ -106,7 +106,7 @@ gene_uni = unique(pbas_all$seg$gene_id[f])
 gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(seg[rownames(perct$fdr)[f],'gene_id'])})
 sgn = pv$celltype_fdr<0.05 & pv$dpsi>0.3
 sgn[is.na(sgn)] = FALSE
-gids$all = unique(seg[rownames(pv)[sgn],'gene_id'])
+gids$all = unique(pbas_all$seg[rownames(pv)[sgn],'gene_id'])
 #sapply(gids,length)
 
 go  = compareCluster(gids,
@@ -123,18 +123,18 @@ log_info('GO finished')
 # _domains ##############
 # I'll use only cassette exons
 domain_sites2use = 'ad'
-seg_uni = rownames(seg)[seg$is_exon & seg$sites %in% domain_sites2use & seg$gene_id %in% gene_uni]
+seg_uni = rownames(pbas_all$seg)[pbas_all$seg$is_exon & pbas_all$seg$sites %in% domain_sites2use & pbas_all$seg$gene_id %in% gene_uni]
 length(seg_uni)
 
 sids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){
   f[is.na(f)] = FALSE
   out = rownames(perct$fdr)[f]
-  out[seg[out,'sites'] == 'ad' & seg[out,'is_exon']]
+  out[pbas_all$seg[out,'sites'] == 'ad' & pbas_all$seg[out,'is_exon']]
 })
 sgn = pv$celltype_fdr<0.05 & pv$dpsi>0.3
 sgn[is.na(sgn)] = FALSE
 sids$all = rownames(pv)[sgn]
-sids$all = sids$all[seg[sids$all,'sites'] == 'ad' & seg[sids$all,'is_exon']]
+sids$all = sids$all[pbas_all$seg[sids$all,'sites'] == 'ad' & pbas_all$seg[sids$all,'is_exon']]
 sapply(sids,length)
 
 ipro   = compareCluster(sids,
@@ -149,13 +149,13 @@ saveRDS(ipro,paste0(out.dir,'/ipro.rds'))
 log_info('interpro finished')
 
 # Example coverage plots ##########
-seg$mean_psi = apply(pbas_all$ir,1,mean,na.rm=TRUE)
+pbas_all$seg$mean_psi = apply(pbas_all$ir,1,mean,na.rm=TRUE)
 N = 100
-f = pv$celltype_fdr<0.05 & pv$dpsi > 0.3 & seg[rownames(pv),'sites'] %in% c('aa','ad','dd') & seg[rownames(pv),'is_exon']
+f = pv$celltype_fdr<0.05 & pv$dpsi > 0.3 & pbas_all$seg[rownames(pv),'sites'] %in% c('aa','ad','dd') & pbas_all$seg[rownames(pv),'is_exon']
 f[is.na(f)] = FALSE
 toplot = pv[f, ]
 toplot = toplot[order(toplot$dpsi,decreasing = TRUE)[1:min(nrow(toplot),N*3)],]
-const_exons = t(sapply(rownames(toplot),function(sid){findNearestConstantExons(seg,sid)}))
+const_exons = t(sapply(rownames(toplot),function(sid){findNearestConstantExons(pbas_all$seg,sid)}))
 f = !is.na(const_exons[,1]) & !is.na(const_exons[,2])
 toplot = cbind(toplot[f,],const_exons[f,])
 toplot = toplot[order(toplot$dpsi,decreasing = TRUE)[1:min(N,nrow(toplot))],]
@@ -168,7 +168,7 @@ for(i in seq_len(nrow(toplot))){
                       usid = toplot$up[i],
                       dsid = toplot$down[i],
                       celltypes = c(toplot$high_state[i],toplot$low_state[i]),
-                      seg=seg,barcodes=barcodes,
+                      seg=pbas_all$seg,barcodes=barcodes,
                       gtf=gtf)  
 }
 dev.off()
