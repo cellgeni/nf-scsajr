@@ -80,7 +80,8 @@ plotSegmentCoverage = function(sid,usid,dsid,celltypes,
                                scanBamFlags=list(isNotPassingQualityControls=FALSE,isDuplicate=FALSE,isSupplementaryAlignment=FALSE,isSecondaryAlignment=FALSE),
                                plot.junc.only.within=NA,
                                min.junc.cov.f = 0.01,
-                               min.junc.cov = 3){
+                               min.junc.cov = 3,
+                               gtf){
   bams = unique(samples[,c('sample_id','bam_path')])
   covs = list()
   start = seg[usid,'start']
@@ -118,7 +119,7 @@ plotSegmentCoverage = function(sid,usid,dsid,celltypes,
                 min.junc.cov.f=min.junc.cov.f)
     #abline(v=c(seg[sid,'start'],seg[sid,'stop']),col='red',lty=2,xpd=FALSE)
   }
-  ann = gtf[gtf$gene_id==seg[sid,'gene_id'] & gtf$start < stop & gtf$stop >= start,]
+  ann = gtf[gtf$gene_id==seg[sid,'gene_id'] & gtf$start < stop & gtf$stop >= start,] # in this way it doesn't depends on chr naming
   ann$exon.col = 'black'
   ann$cds.col = 'black'
   f = ann$start >= seg[sid,'start'] & ann$stop <= seg[sid,'stop']

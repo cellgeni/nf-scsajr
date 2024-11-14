@@ -45,7 +45,7 @@ getDitPlotSize = function(ccr){
   size = table(ccr@compareClusterResult$Cluster)
   size = size[size>0]
   size = c(height=sum(pmin(5,size)) * 0.15 + 3,
-          width=length(size) * 0.4 + 5)
+          width=length(size) * 0.6 + 7)
   size
 }
 
@@ -106,7 +106,7 @@ Here each celltype was tested against all remaining.
 sgn = rbind(psi01=apply(perct$fdr<0.05 & abs(perct$dpsi)>0.1 & abs(perct$dpsi) <= 0.5,2,sum,na.rm=TRUE),
             psi05=apply(perct$fdr<0.05 & abs(perct$dpsi)>0.5,2,sum,na.rm=TRUE))
 par(mar=c(10,4,1,1))
-barplot(sgn,xlab='',ylab='# significant segments',legend.text = c('PSI > 0.1', 'PSI > 0.5'),las=2)
+barplot(sgn,xlab='',ylab='# significant segments',legend.text = c('dPSI > 0.1', 'dPSI > 0.5'),las=2)
 ```
 
 # GO enrichment

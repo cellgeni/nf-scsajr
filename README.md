@@ -28,7 +28,12 @@ nextflow run main.nf \
 By default pipeline uses 2020-A human reference, if you want to use another reference you'll need first convert gtf file by `java -jar sajr.ss.jar gff2sajr sajr.config -ann_foreign=input.gtf -ann_out=output.sajr` and then add `--ref output.sajr` to pipeline command.
 
 # TODO
-1. Autodetect strand using part of data (not whole as now)
-2. Autodetect chr/not-chr annotation?
-3. Fail smartly if filtering leaves no segments
-4. Speed up quantification (rewrite it entirely?). Make per-gene? paralelaze?
+-1. Make workflow for reference creation
+0. Make another workflow to restart from output of previous but with new annotation.
+1. Publish docker image  to quao.io
+2. Separate reference data (gtf,interpro) into folder
+3. Make code work without go and/or interpro (other psecies)
+4. Autodetect strand using part of data (not whole as now)
+5. Autodetect chr/not-chr annotation?
+6. Fail smartly if filtering leaves no segments
+7. Speed up quantification (rewrite it entirely?). Make per-gene? paralelaze?

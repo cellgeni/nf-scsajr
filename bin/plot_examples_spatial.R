@@ -42,12 +42,12 @@ psi = i/(i+e)
 
 par(mfrow=c(2,2),mar=c(0,0,1,6))
 for(s in names(vs)){
-  plotVisium(vs[[s]],psi[colnames(vs[[s]])],main=s)#,zlim=c(0,0.5))
+  plotVisium(vs[[s]],psi[colnames(vs[[s]])],main=s,legend.args = list(title='PSI'),zlim=c(0,0.7),cex=0.)
 }
 
 
 par(mfrow=c(2,2),mar=c(0,0,1,6))
 for(s in names(vs)){
   cpm = FetchData(vs[[s]],gid,layer = 'count')[,1]/vs[[s]]$nCount_Spatial*1e4
-  plotVisium(vs[[s]],cpm,main=s,zfun = log1p)
+  plotVisium(vs[[s]],cpm,main=s,zfun = log1p,legend.args = list(title='CP10K'))
 }
