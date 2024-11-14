@@ -9,9 +9,13 @@ library(org.Hs.eg.db)
 # parse args ###########
 # pbsas, pbmeta, path2ref, path2bin
 args = commandArgs(trailingOnly=TRUE)
+writeLines(args,'params.txt')
+#args = readLines('params.txt')
 
-path2ref = args[3]
-path2bin = args[4]
+mincells = as.integer(args[3])
+minsamples = as.integer(args[4])
+path2ref = args[5]
+path2bin = args[6]
 source(paste0(path2bin,'/plotCoverage.R'))
 source(paste0(path2bin,'/sajr_utils.R'))
 
@@ -37,10 +41,6 @@ segFilter = function(d,sites,min.sd=0.1){
     d$seg$sd > min.sd & 
     d$seg$sites %in% sites
 }
-
-# samples
-mincells = 29
-minsamples = 2
 
 # filter #################
 # pbas = readRDS(paste0(out.dir,'/pb_as.rds'))

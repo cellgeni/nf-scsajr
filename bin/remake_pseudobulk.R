@@ -82,7 +82,7 @@ log_info('data loaded')
 
 # combine #######
 names(pbasl) = samples$sample_id
-cmnbarcodes = unlist(cmnbarcodesl[f])
+cmnbarcodes = unlist(cmnbarcodesl)
 
 pbas = list(seg=seg,i=NULL,e=NULL)
 for(n in names(pbasl)){
