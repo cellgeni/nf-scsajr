@@ -119,6 +119,8 @@ process postprocess {
  
  input:
  path(rds)
+ path(samples)
+ path(barcodes)
  
  output:
  path('rds'), emit: rds
@@ -126,7 +128,7 @@ process postprocess {
  
  shell:
  '''
- Rscript !{projectDir}/bin/postprocess.R !{rds}/pb_as.rds !{rds}/pb_meta.rds !{params.mincells} !{params.minsamples} !{params.SAMPLEFILE} !{params.BARCODEFILE} !{params.ref} !{projectDir}/bin
+ Rscript !{projectDir}/bin/postprocess.R !{rds}/pb_as.rds !{rds}/pb_meta.rds !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{params.ref} !{projectDir}/bin
  '''
 }
 
@@ -150,21 +152,23 @@ process generate_summary {
 }
 
 workflow  {
+  ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
   ch_data = ch_data.combine(Channel.of(-1,1))
   ch_data = ch_data.combine(Channel.fromPath(params.ref))
   ch_data | run_sajr | set {sajr_outs}
   sajrout_path_file = sajr_outs.collectFile{item -> ["samples.txt", item[0].toString()  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[4] + "\n"]}
-  combine_sajr_output(sajrout_path_file,Channel.fromPath(params.BARCODEFILE),sajr_outs.count())
-  postprocess(combine_sajr_output.out.rds)
+  combine_sajr_output(sajrout_path_file,ch_barcodes,sajr_outs.count())
+  postprocess(combine_sajr_output.out.rds,ch_sample_list,ch_barcodes)
   generate_summary(postprocess.out.rds)
 }
 
 workflow repseudobulk {
+  ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   remake_pseudobulk(ch_sample_list,Channel.fromPath(params.BARCODEFILE),ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds)
+  postprocess(remake_pseudobulk.out.rds,ch_sample_list,ch_barcodes)
   generate_summary(postprocess.out.rds)
 }
 
