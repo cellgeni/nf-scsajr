@@ -31,6 +31,8 @@ getRecountCov = function(sid,jxn,gene.grange){
 
 sumCovs = function(l){
   r = l[[1]]
+  if(length(l)==1)
+    return(r)
   juncs = unique(do.call(rbind,unname(lapply(l,function(c)c$juncs[,1:3]))))
   juncs$score = 0
   juncs[rownames(r$juncs),'score'] = r$juncs$score

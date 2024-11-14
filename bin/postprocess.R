@@ -7,15 +7,17 @@ library(clusterProfiler)
 library(org.Hs.eg.db)
 
 # parse args ###########
-# pbsas, pbmeta, path2ref, path2bin
+# pbsas, pbmeta, mincells, minsamples, path2samples, path2barcodes, path2ref, path2bin
 args = commandArgs(trailingOnly=TRUE)
 writeLines(args,'params.txt')
 #args = readLines('params.txt')
 
 mincells = as.integer(args[3])
 minsamples = as.integer(args[4])
-path2ref = args[5]
-path2bin = args[6]
+path2samples = args[5]
+path2barcodes = args[6]
+path2ref = args[7]
+path2bin = args[8]
 source(paste0(path2bin,'/plotCoverage.R'))
 source(paste0(path2bin,'/sajr_utils.R'))
 
@@ -23,7 +25,10 @@ source(paste0(path2bin,'/sajr_utils.R'))
 pbas = readRDS(args[1])
 pbmeta = readRDS(args[2])
 out.dir = 'rds' # it is passed from previous processes
-
+samples  = read.table(path2samples,sep='\t')
+colnames(samples) = c('sample_id','bam_path')
+barcodes = read.table(path2barcodes,sep='\t')
+colnames(barcodes) = c('sample_id','barcode','celltype')
 # load annotation ###############
 gtf = readRDS(paste0(path2ref,'/gtf.rds'))
 

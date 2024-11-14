@@ -126,7 +126,7 @@ process postprocess {
  
  shell:
  '''
- Rscript !{projectDir}/bin/postprocess.R !{rds}/pb_as.rds !{rds}/pb_meta.rds !{params.mincells} !{params.minsamples} !{params.ref} !{projectDir}/bin
+ Rscript !{projectDir}/bin/postprocess.R !{rds}/pb_as.rds !{rds}/pb_meta.rds !{params.mincells} !{params.minsamples} !{params.SAMPLEFILE} !{params.BARCODEFILE} !{params.ref} !{projectDir}/bin
  '''
 }
 
