@@ -12,7 +12,8 @@ args = commandArgs(trailingOnly=TRUE)
 
 path2ref = args[3]
 path2bin = args[4]
-source(paste0(path2bin,'/../bin/plotCoverage.R'))
+source(paste0(path2bin,'/plotCoverage.R'))
+source(paste0(path2bin,'/sajr_utils.R'))
 
 # load data #############
 pbas = readRDS(args[1])
