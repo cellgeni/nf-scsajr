@@ -32,8 +32,10 @@ plotMDS = function(xy,celltypes,ct2col,samples,...){
   plot(xy,col=ct2col[celltypes],pch=pch,xlab='Dim 1',ylab='Dim 2',...)
   for(ct in unique(celltypes)){
     inx = which(celltypes == ct)
-    inx = combn(inx,2)
-    segments(xy[inx[1,],1],xy[inx[1,],2],xy[inx[2,],1],xy[inx[2,],2],col=ct2col[ct])
+    if(length(inx)>1){
+      inx = combn(inx,2)
+      segments(xy[inx[1,],1],xy[inx[1,],2],xy[inx[2,],1],xy[inx[2,],2],col=ct2col[ct])
+    }
   }
   for(ct in unique(celltypes)){
     inx = which(celltypes == ct)
