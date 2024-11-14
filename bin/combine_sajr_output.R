@@ -55,7 +55,7 @@ pbasl = llply(seq_len(nrow(samples)),function(i){
   pb$i = as.matrix(visutils::calcColSums(r$i,f))
   pb$e = as.matrix(visutils::calcColSums(r$e,f))
   pb$cmn = cmn
-  pb$ncell = pb$ncell 
+  pb$ncell = ncell 
   
   rm(r)
   mem = gc()
