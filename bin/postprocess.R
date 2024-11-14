@@ -103,7 +103,7 @@ log_info('diff AS finished')
 f = segFilter(pbas_all,sites,min.sd = 0)
 gene_uni = unique(pbas_all$seg$gene_id[f])
 
-gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(seg[rownames(perct$fdr)[f],'gene_id'])})
+gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(pbas_all$seg[rownames(perct$fdr)[f],'gene_id'])})
 sgn = pv$celltype_fdr<0.05 & pv$dpsi>0.3
 sgn[is.na(sgn)] = FALSE
 gids$all = unique(pbas_all$seg[rownames(pv)[sgn],'gene_id'])
