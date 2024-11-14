@@ -15,7 +15,7 @@ path2samples = args[1]
 path2barcodes = args[2]
 path2ref = args[3]
 path2bin = args[4]
-ncores = as.integer(args[6])
+ncores = as.integer(args[5])
 DEL='$' # delimeter to separate sample and celltype names
 source(paste0(path2bin,'/sajr_utils.R'))
 doMC::registerDoMC(ncores)
@@ -43,14 +43,13 @@ log_info('initializing finished')
 pbasl = llply(seq_len(nrow(samples)),function(i){
   r = loadSC_AS(seg,paste0(samples$sajr_out[i],'/',samples$sample_id[i]))
   colnames(r$e) = colnames(r$i) = paste0(samples$sample_id[i],'|',colnames(r$i))
+  saveRDS(r,paste0('rds/',samples$sample_id[i],'_',samples$strand[i],'.rds'))
+  
+  # calc pseudobulks
   cmn = intersect(rownames(barcodes) , colnames(r$i))
   r$i = r$i[,cmn]
   r$e = r$e[,cmn]
-  saveRDS(r,paste0('rds/',samples$sample_id[i],'_',samples$strand[i],'.rds'))
-  
   ncell = rowSums(r$i + r$e > 9)
-  # calc pseudobulks
-  cmn = intersect(rownames(barcodes) , colnames(r$i))
   f = paste0(barcodes[cmn,'sample_id'],DEL,barcodes[cmn,'celltype'])
   pb = list(seg=seg)
   pb$i = as.matrix(visutils::calcColSums(r$i,f))
