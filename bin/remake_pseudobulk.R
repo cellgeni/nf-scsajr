@@ -38,7 +38,7 @@ if(any(grepl(DEL,c(barcodes$sample_id,barcodes$celltype),fixed = TRUE))){
 
 seg = read.csv(paste0(path2ref,"/segments.csv"),row.names = 1)
 
-out.dir = 'rds'
+out.dir = 'rds1'
 dir.create(out.dir)
 log_info('initializing finished')
 
@@ -56,8 +56,8 @@ pbasl = llply(seq_len(nrow(samples)),function(i){
   ncell = rowSums(r$i + r$e > 9)
   f = paste0(barcodes[cmn,'sample_id'],DEL,barcodes[cmn,'celltype'])
   pb = list()
-  pb$i = as.matrix(visutils::calcColSums(r$i,f))
-  pb$e = as.matrix(visutils::calcColSums(r$e,f))
+  pb$i = visutils::calcColSums(r$i,f)
+  pb$e = visutils::calcColSums(r$e,f)
   pb$cmn = cmn
   pb$ncell = ncell 
   

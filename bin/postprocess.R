@@ -25,7 +25,7 @@ source(paste0(path2bin,'/sajr_utils.R'))
 pbas = readRDS(args[1])
 pbmeta = readRDS(args[2])
 out.dir = 'rds' # it is passed from previous processes
-samples  = read.table(path2samples,sep='\t')
+samples  = read.table(path2samples,sep=' ')
 colnames(samples) = c('sample_id','bam_path')
 barcodes = read.table(path2barcodes,sep='\t')
 colnames(barcodes) = c('sample_id','barcode','celltype')

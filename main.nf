@@ -44,8 +44,6 @@ process get_data {
     iget -f -v -K "!{bam_path}" "!{id}.bam"
     iget -f -v -K "!{bam_path}.bai" "!{id}.bam.bai"
   else
-    #cp "!{bam_path}" "!{id}.bam"
-    #cp "!{bam_path}.bai" "!{id}.bam.bai"
     ln -s !{bam_path} !{id}.bam
     ln -s !{bam_path}.bai !{id}.bam.bai
   fi
@@ -167,8 +165,11 @@ workflow  {
 workflow repseudobulk {
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
+  ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
+  bam_path_file = ch_data.collectFile{item -> ["samples.txt", item[0].toString()  + " " + item[1] + "\n"]}
+  
   remake_pseudobulk(ch_sample_list,Channel.fromPath(params.BARCODEFILE),ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds,ch_sample_list,ch_barcodes)
+  postprocess(remake_pseudobulk.out.rds,bam_path_file,ch_barcodes)
   generate_summary(postprocess.out.rds)
 }
 
