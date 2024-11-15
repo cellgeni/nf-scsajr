@@ -156,9 +156,11 @@ workflow  {
   ch_data = ch_data.combine(Channel.of(-1,1))
   ch_data = ch_data.combine(Channel.fromPath(params.ref))
   ch_data | run_sajr | set {sajr_outs}
-  sajrout_path_file = sajr_outs.collectFile{item -> ["samples.txt", item[0].toString()  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[4] + "\n"]}
+  sajrout_path_file = sajr_outs.collectFile{item -> ["sajr_outs.txt", item[0].toString()  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[4] + "\n"]}
   combine_sajr_output(sajrout_path_file,ch_barcodes,sajr_outs.count())
-  postprocess(combine_sajr_output.out.rds,ch_sample_list,ch_barcodes)
+  
+  bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
+  postprocess(combine_sajr_output.out.rds,bam_path_file,ch_barcodes)
   generate_summary(postprocess.out.rds)
 }
 
@@ -166,7 +168,7 @@ workflow repseudobulk {
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
-  bam_path_file = ch_data.collectFile{item -> ["samples.txt", item[0].toString()  + " " + item[1] + "\n"]}
+  bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
   
   remake_pseudobulk(ch_sample_list,Channel.fromPath(params.BARCODEFILE),ch_sample_list.countLines())
   postprocess(remake_pseudobulk.out.rds,bam_path_file,ch_barcodes)
