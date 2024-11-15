@@ -67,16 +67,15 @@ sf = pbmeta$ncells>mincells & pbmeta$celltype %in% names(nsam)[nsam>=minsamples]
 # table(pbmeta$celltype,sf)
 
 pbmeta = pbmeta[sf,]
-pbas = pbas[,sf]
+pbas = pbas[TRUE,sf]
 
-# segments
-
+# segments (not taking sd into account)
 f = segFilter(pbas,sites)
 # table(f)
 # table(pbas$seg$sites[f],pbas$seg$cod[f])
 
 # filter with no sd
-pbas = pbas[f,]
+pbas = pbas[f,TRUE]
 # change to dense matrices and calculate ir and sd
 pbas$i = as.matrix(pbas$i)
 pbas$e = as.matrix(pbas$e)
