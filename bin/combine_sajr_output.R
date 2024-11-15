@@ -113,11 +113,12 @@ colnames(pbmeta) = c('sample_id','celltype')
 rownames(pbmeta) = colnames(pbas$i)
 pbmeta$ncells = as.numeric(table(paste0(barcodes$sample_id,DEL,barcodes$celltype))[rownames(pbmeta)])
 
-pbas$ir = pbas$i/(pbas$i+pbas$e)
-pbas$ir[pbas$i+pbas$e<10] = NA
-pbas$seg$sd = apply(pbas$ir,1,sd,na.rm=TRUE)
-pbas$seg$sd[is.na(pbas$seg$sd)] = 0
-pbas$seg$nna = apply(!is.na(pbas$ir),1,sum)
+# pbas$ir = pbas$i/(pbas$i+pbas$e)
+# pbas$ir[pbas$i+pbas$e<10] = NA
+# pbas$seg$sd = apply(pbas$ir,1,sd,na.rm=TRUE)
+# pbas$seg$sd[is.na(pbas$seg$sd)] = 0
+# pbas$seg$nna = apply(!is.na(pbas$ir),1,sum)
+pbas$seg$nna = rowSums(pbas$i+pbas$e>=10)
 log_info('pseudobulk is made')
 
 # save ##############

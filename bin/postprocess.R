@@ -41,7 +41,9 @@ interpro = readRDS(paste0(path2ref,'/functional_annotation/interpro.rds'))
 # segments
 sites = c('ad','aa','dd')
 segFilter = function(d,sites,min.sd=0.1){
-  # d$seg$type=='ALT' & 
+  # do not filter by sd if it is not set  yet
+  if(is.null(d$seg$sd))
+    d$seg$sd = min.sd*2
   d$seg$nna >= max(4,nrow(pbmeta)*0.2) & 
     d$seg$sd > min.sd & 
     d$seg$sites %in% sites
@@ -51,6 +53,13 @@ segFilter = function(d,sites,min.sd=0.1){
 # pbas = readRDS(paste0(out.dir,'/pb_as.rds'))
 # pbmeta = readRDS(paste0(out.dir,'/pb_meta.rds'))
 pbas_all = pbas 
+
+alli = rowSums(pbas_all$i)
+alle = rowSums(pbas_all$e)
+pbas_all$e = pbas_all$i = NULL
+pbas_all$seg$mean_psi = alli/(alli+alle)
+rm(alli,alle)
+
 # pbsamples
 sf = pbmeta$ncells>mincells
 nsam = table(pbmeta$celltype[sf])
@@ -66,7 +75,17 @@ f = segFilter(pbas,sites)
 # table(f)
 # table(pbas$seg$sites[f],pbas$seg$cod[f])
 
+# filter with no sd
 pbas = pbas[f,]
+# change to dense matrices and calculate ir and sd
+pbas$i = as.matrix(pbas$i)
+pbas$e = as.matrix(pbas$e)
+
+pbas$ir = pbas$i/(pbas$i+pbas$e)
+pbas$ir[pbas$i+pbas$e<10] = NA
+pbas$seg$sd = apply(pbas$ir,1,sd,na.rm=TRUE)
+pbas$seg$sd[is.na(pbas$seg$sd)] = 0
+pbas = pbas[segFilter(pbas,sites),]
 
 saveRDS(pbas,paste0(out.dir,'/pb_as_filtered.rds'))
 saveRDS(pbmeta,paste0(out.dir,'/pb_meta_filtered.rds'))
@@ -154,7 +173,6 @@ saveRDS(ipro,paste0(out.dir,'/ipro.rds'))
 log_info('interpro finished')
 
 # Example coverage plots ##########
-pbas_all$seg$mean_psi = apply(pbas_all$ir,1,mean,na.rm=TRUE)
 N = 100
 f = pv$celltype_fdr<0.05 & pv$dpsi > 0.3 & pbas_all$seg[rownames(pv),'sites'] %in% c('aa','ad','dd') & pbas_all$seg[rownames(pv),'is_exon']
 f[is.na(f)] = FALSE
