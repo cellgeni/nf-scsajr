@@ -42,10 +42,11 @@ interpro = readRDS(paste0(path2ref,'/functional_annotation/interpro.rds'))
 sites = c('ad','aa','dd')
 segFilter = function(d,sites,min.sd=0.1){
   # do not filter by sd if it is not set  yet
-  if(is.null(d$seg$sd))
-    d$seg$sd = min.sd*2
+  sdf = TRUE
+  if(!is.null(d$seg$sd))
+    sdf = d$seg$sd > min.sd
   d$seg$nna >= max(4,nrow(pbmeta)*0.2) & 
-    d$seg$sd > min.sd & 
+    sdf & 
     d$seg$sites %in% sites
 }
 

@@ -38,7 +38,7 @@ if(any(grepl(DEL,c(barcodes$sample_id,barcodes$celltype),fixed = TRUE))){
 
 seg = read.csv(paste0(path2ref,"/segments.csv"),row.names = 1)
 
-out.dir = 'rds1'
+out.dir = 'rds'
 dir.create(out.dir)
 log_info('initializing finished')
 
