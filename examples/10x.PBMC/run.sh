@@ -1,11 +1,12 @@
 # 10k Human PBMCs, 5' v2.0, Chromium X (with intronic reads)
 # https://www.10xgenomics.com/datasets/10k-human-pbmcs-5-v2-0-chromium-x-with-intronic-reads-2-standard
-mkdir test
-cd test
+mkdir 10x.PBMC
+cd 10x.PBMC
 
-wget https://cf.10xgenomics.com/samples/cell-vdj/6.1.2/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron_count_sample_alignments.bam -O alignment.bam
-wget https://cf.10xgenomics.com/samples/cell-vdj/6.1.2/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron_count_sample_alignments.bam.bai -O alignment.bam.bai
-wget https://cf.10xgenomics.com/samples/cell-vdj/6.1.2/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron_count_analysis.tar.gz -O clusters.tar.gz
+path="https://cf.10xgenomics.com/samples/cell-vdj/6.1.2/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron/10k_PBMC_5pv2_nextgem_Chromium_X_intron_10k_PBMC_5pv2_nextgem_Chromium_X_intron_count"
+wget ${path}_sample_alignments.bam -O alignment.bam
+wget ${path}_sample_alignments.bam.bai -O alignment.bam.bai
+wget ${path}_analysis.tar.gz -O clusters.tar.gz
 
 # prepare input files
 tar -xzf clusters.tar.gz
@@ -22,3 +23,4 @@ nextflow run nf-scsajr \
  --minsamples 1 \
  -resume
 
+# it should generate output similar to one in "output" dir (plus rds files)
