@@ -25,11 +25,14 @@ nextflow run main.nf \
  --bam_on_irods true \
  -resume
 ```
-By default pipeline uses 2020-A human reference, if you want to use another reference you'll need first convert gtf file by `java -jar sajr.ss.jar gff2sajr sajr.config -ann_foreign=input.gtf -ann_out=output.sajr` and then add `--ref output.sajr` to pipeline command.
+For now pipeline works only with human 2020A reference. It can be relatively easily applied for other species/annotation withou GO/domain enrichment part. However it is not implemented yet, please contact me if you want to run pipeline on any other reference.
+
+The pipeline relies on junction reads. So, while technically it can work on any bam with cell barcode (CB bam tag) set, it will hardly detect anything in 3' data while single-nuclei data can be very noisy. It seems to work reasonably well on single cell 5' short reads or on 3' long reads.  
 
 # TODO
+0. Change to SummarizedExperiment to store splicing data
 1. Make workflow for reference creation
-2. Make code work without go and/or interpro (other psecies)
+2. Make code work without go and/or interpro (other species)
 3. Autodetect strand using part of data (not whole as now)
 4. Autodetect chr/not-chr annotation?
 5. Fail smartly if filtering leaves no segments

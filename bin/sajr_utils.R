@@ -1,4 +1,3 @@
-# functions ###############
 readNamedMM = function(f){
   require(Matrix)
   if(file.exists(paste0(f,'.mtx'))){
@@ -44,14 +43,20 @@ get_dPSI = function(d,f,mincov=50){
 }
 
 findNearestConstantExons = function(seg,sid,psi.thr=0.95){
+  if(is.null(gsegs$mean_psi)){
+    warning('mean_psi is unset, using type=="EXN" instead')
+    gsegs$cnst = gsegs$type=="EXN"
+  }else{
+    gsegs$cnst = (is.na(gsegs$mean_psi) | gsegs$mean_psi>=psi.thr)
+  }
   gsegs = seg[seg$gene_id %in% seg[sid,'gene_id'],]
   strand = gsegs$strand[1]
   if(strand==0)
     strand = 1
   gsegs = gsegs[order(strand*gsegs$start),]
   up = down = NA
-  ucnst = which((is.na(gsegs$mean_psi) | gsegs$mean_psi>=psi.thr) & gsegs$sites %in% c('ad','sd'))
-  dcnst = which((is.na(gsegs$mean_psi) | gsegs$mean_psi>=psi.thr) & gsegs$sites %in% c('ad','ae'))
+  ucnst = which(gsegs$cnst & gsegs$sites %in% c('ad','sd'))
+  dcnst = which(gsegs$cnst & gsegs$sites %in% c('ad','ae'))
   inx = which(rownames(gsegs) == sid)
   if(length(ucnst)>0 && any(ucnst<inx))
     up = rownames(gsegs)[max(ucnst[ucnst<inx])]
@@ -76,7 +81,8 @@ castXYtable = function(x,y,i){
 }
 
 plotSegmentCoverage = function(sid,usid,dsid,celltypes,
-                               seg,barcodes,
+                               seg,
+                               barcodes,
                                scanBamFlags=list(isNotPassingQualityControls=FALSE,isDuplicate=FALSE,isSupplementaryAlignment=FALSE,isSecondaryAlignment=FALSE),
                                plot.junc.only.within=NA,
                                min.junc.cov.f = 0.01,
