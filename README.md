@@ -16,24 +16,32 @@ Celltype annotation specified by another tsv file:
 ```
 sample barcode celltype
 ```
+# Create reference
+nf-scSAJR is distributed with pre-build human 2020A reference. It includes gene descriptions and protein domain annotation.
+If you are working with non-human species or if you want to use other annotation version you can build th reference from gtf file using:
+```
+nextflow main.nf \
+ -entry reference \
+ --gtf annotation.gtf \
+ --outdir <path2reference> \
+ -resume
+```
+Please keep in mind that this reference will not have domain annotation and gene descriptions so there will be no domain enrichment analyses in pipeline output obtained using this such reference. 
 
 # Run
 ```
-nextflow run main.nf \
+nextflow main.nf \
  --SAMPLEFILE samples.tsv \
  --BARCODEFILE barcodes.tsv \
- --bam_on_irods true \
+ --outdir sajr_out \
+ --ref ref/human_2020A_chr \
  -resume
 ```
-For now pipeline works only with human 2020A reference. It can be relatively easily applied for other species/annotation withou GO/domain enrichment part. However it is not implemented yet, please contact me if you want to run pipeline on any other reference.
 
 The pipeline relies on junction reads. So, while technically it can work on any bam with cell barcode (CB bam tag) set, it will hardly detect anything in 3' data while single-nuclei data can be very noisy. It seems to work reasonably well on single cell 5' short reads or on 3' long reads.  
 
 # TODO
-0. Change to SummarizedExperiment to store splicing data
-1. Make workflow for reference creation
-2. Make code work without go and/or interpro (other species)
-3. Autodetect strand using part of data (not whole as now)
-4. Autodetect chr/not-chr annotation?
-5. Fail smartly if filtering leaves no segments
-6. Speed up quantification (rewrite it entirely?). Make per-gene? paralelaze?
+1. Autodetect strand using part of data (not whole as now)
+2. Autodetect chr/not-chr annotation?
+3. Fail smartly if filtering leaves no segments
+4. Speed up quantification (rewrite it entirely?). Make per-gene? paralelaze?
