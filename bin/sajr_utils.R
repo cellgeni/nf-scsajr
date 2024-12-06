@@ -425,7 +425,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   if(is.null(stop))
     stop = seg[dsid,'end']
   if(is.null(chr))
-    chr = seg[sid,'seqnames']
+    chr = as.character(seg[sid,'seqnames'])
   strand = NA
   
   covs = list()
@@ -439,7 +439,10 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
       cov[[length(cov)+1]] = getReadCoverage(bams$bam_path[i],
                                              chr,start,stop,strand=strand,scanBamFlags=scanBamFlags,tagFilter = tagFilter)
     }
-    covs[[ct]] = sumCovs(cov)
+    if(length(cov)>1)
+      covs[[ct]] = sumCovs(cov)
+    else
+      covs[[ct]] = cov[[1]]
   }
   
   l = cbind(1,1+seq_len(1+length(celltypes)))

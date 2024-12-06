@@ -105,6 +105,7 @@ if(!is.null(domain2seg)){
 }
 
 saveRDS(pbas,paste0(out.dir,'/pb_as_filtered.rds'))
+#pbas = readRDS(paste0(out.dir,'/pb_as_filtered.rds'))
 
 log_info('interpro finished')
 
