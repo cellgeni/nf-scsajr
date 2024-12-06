@@ -8,7 +8,7 @@ library(org.Hs.eg.db)
 library(plotCoverage)
 
 # parse args ###########
-# pbsas, mincells, minsamples, path2samples, path2barcodes, path2ref, path2bin
+# pbsas, mincells, minsamples, path2samples, path2barcodes, path2ref, path2bin, ncores
 args = commandArgs(trailingOnly=TRUE)
 writeLines(args,'params.txt')
 #args = readLines('params.txt')
@@ -19,11 +19,13 @@ path2samples = args[4]
 path2barcodes = args[5]
 path2ref = args[6]
 path2bin = args[7]
+ncores = as.numeric(args[8])
+doMC::registerDoMC(ncores)
 source(paste0(path2bin,'/sajr_utils.R'))
 
 # load data #############
 out.dir = args[1]
-pbas = readRDS(paste0(out.dir,'/pbas.rds'))
+pbas_all = readRDS(paste0(out.dir,'/pbas.rds'))
 samples  = read.table(path2samples,sep=' ')
 colnames(samples) = c('sample_id','bam_path')
 barcodes = read.table(path2barcodes,sep='\t')
@@ -37,9 +39,7 @@ domain2seg = readRDSifExists(paste0(path2ref,'/functional_annotation/domain2seg.
 interpro   = readRDSifExists(paste0(path2ref,'/functional_annotation/interpro.rds'))
 
 # filter #################
-pbas_all = pbas 
-
-pbas = filterSegmentsAndSamples(pbas)
+pbas = filterSegmentsAndSamples(pbas_all,celltype_min_samples = minsamples,sample_min_ncells = mincells)
 log_info('samples*celltype filtering: ',ncol(pbas_all), ' -> ',ncol(pbas))
 log_info('segment filtering: ',nrow(pbas_all), ' -> ',nrow(pbas))
 
@@ -56,15 +56,17 @@ log_info('diff AS finished')
 perct = pbas@metadata$markers
 pv = pbas@metadata$all_celltype_test
 
+gene_uni = filterSegmentsAndSamples(pbas_all,seg_min_sd = 0)
+gene_uni = unique(rowData(gene_uni)$gene_id)
+seg = rowData(pbas_all)
+
+gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(seg[rownames(perct$fdr)[f],'gene_id'])})
+sgn = pv$group_fdr<0.05 & pv$dpsi>0.3
+sgn[is.na(sgn)] = FALSE
+gids$all = unique(seg[rownames(pv)[sgn],'gene_id'])
+
+
 tryCatch({
-  gene_uni = filterSegmentsAndSamples(pbas_all,seg_min_sd = 0)
-  gene_uni = unique(gene_uni$gene_id)
-  
-  gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(colData(pbas_all)[rownames(perct$fdr)[f],'gene_id'])})
-  sgn = pv$celltype_fdr<0.05 & pv$dpsi>0.3
-  sgn[is.na(sgn)] = FALSE
-  gids$all = unique(colData(pbas_all)[rownames(pv)[sgn],'gene_id'])
-  
   pbas@metadata$go  = compareCluster(gids,
                        fun='enrichGO',
                        universe      = gene_uni,
@@ -80,21 +82,19 @@ log_info('GO finished')
 
 # _domains ##############
 # I'll use only cassette exons
-tryCatch({
+if(!is.null(domain2seg)){
   domain_sites2use = 'ad'
-  seg_uni = rownames(pbas_all)[pbas_all$is_exon & pbas_all$sites %in% domain_sites2use & pbas_all$gene_id %in% gene_uni]
-  length(seg_uni)
+  seg_uni = rownames(pbas_all)[seg$is_exon & seg$sites %in% domain_sites2use & seg$gene_id %in% gene_uni]
   
   sids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){
     f[is.na(f)] = FALSE
     out = rownames(perct$fdr)[f]
-    out[colData(pbas_all)[out,'sites'] == 'ad' & colData(pbas_all)[out,'is_exon']]
+    out[seg[out,'sites'] == 'ad' & seg[out,'is_exon']]
   })
-  sgn = pv$celltype_fdr<0.05 & pv$dpsi>0.3
+  sgn = pv$group_fdr<0.05 & pv$dpsi>0.3
   sgn[is.na(sgn)] = FALSE
   sids$all = rownames(pv)[sgn]
-  sids$all = sids$all[colData(pbas_all)[sids$all,'sites'] == 'ad' & colData(pbas_all)[sids$all,'is_exon']]
-  sapply(sids,length)
+  sids$all = sids$all[seg[sids$all,'sites'] == 'ad' & seg[sids$all,'is_exon']]
   
   pbas@metadata$ipro   = compareCluster(sids,
                           fun='enricher',
@@ -102,10 +102,7 @@ tryCatch({
                           pAdjustMethod = "BH",
                           TERM2GENE     = domain2seg$interpro,
                           TERM2NAME = interpro[,-2])
-},error=function(e){
-  warning('Domain analyses was unsuccesfull')
-  print(e)
-  })
+}
 
 saveRDS(pbas,paste0(out.dir,'/pb_as_filtered.rds'))
 

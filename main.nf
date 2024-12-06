@@ -130,7 +130,7 @@ process postprocess {
  
  shell:
  '''
- Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin
+ Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
  '''
 }
 
