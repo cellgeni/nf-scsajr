@@ -56,7 +56,7 @@ log_info('diff AS finished')
 perct = pbas@metadata$markers
 pv = pbas@metadata$all_celltype_test
 
-gene_uni = filterSegmentsAndSamples(pbas_all,seg_min_sd = 0)
+gene_uni = filterSegmentsAndSamples(pbas_all,seg_min_sd = 0,celltype_min_samples = minsamples,sample_min_ncells = mincells)
 gene_uni = unique(rowData(gene_uni)$gene_id)
 seg = rowData(pbas_all)
 
