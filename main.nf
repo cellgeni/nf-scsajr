@@ -53,9 +53,6 @@ process get_data {
 
 
 process run_sajr {
-  
-  memory = {10.GB + bam_path.size() / 10 * 11.B + 10.GB * task.attempt}
-  
   input:
   tuple val(id), path(bam_path), path(bam_path_id), val(strand), path(ref)
   
@@ -116,13 +113,12 @@ process remake_pseudobulk {
 process postprocess {
  publishDir "${params.outdir}/", mode: 'copy'
  
- memory = {30.GB + 20.GB * task.attempt}
- 
  input:
  path(rds)
  path(samples)
  path(barcodes)
  path(ref)
+ val(n_samples)
  
  output:
  path('rds'), emit: rds
@@ -166,7 +162,7 @@ workflow  {
   combine_sajr_output(sajrout_path_file,ch_barcodes,ch_ref,sajr_outs.count())
   
   bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
-  postprocess(combine_sajr_output.out.rds,bam_path_file,ch_barcodes,ch_ref)
+  postprocess(combine_sajr_output.out.rds,bam_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)
 }
 
@@ -178,7 +174,7 @@ workflow repseudobulk {
   bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
   
   remake_pseudobulk(ch_sample_list,Channel.fromPath(params.BARCODEFILE),ch_ref,ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds,bam_path_file,ch_barcodes,ch_ref)
+  postprocess(remake_pseudobulk.out.rds,bam_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)
 }
 
