@@ -53,6 +53,8 @@ process get_data {
 
 
 process run_sajr {
+  publishDir "${params.outdir}/sajr/", mode: 'copy', pattern: "${id}"
+  
   input:
   tuple val(id), path(bam_path), path(bam_path_id), val(strand), path(ref)
   
@@ -70,6 +72,8 @@ process run_sajr {
     -ann_in=!{ref}/segments.sajr \
     -stranded=!{strand} \
     -count_only_border_reads=true
+  
+  gzip !{id}/*
   '''
 }
 
