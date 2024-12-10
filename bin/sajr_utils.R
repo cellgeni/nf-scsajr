@@ -405,7 +405,8 @@ castXYtable = function(x,y,i){
 
 plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                chr=NULL,start = NULL,stop=NULL,
-                               celltypes,
+                               covs = NULL,
+                               celltypes = NULL,
                                data,
                                groupby,
                                barcodes,
@@ -415,7 +416,8 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                plot.junc.only.within=NA,
                                min.junc.cov.f = 0.01,
                                min.junc.cov = 3,
-                               gtf){
+                               gtf,
+                               ylim_by_junc = FALSE){
   groupby = getGroupbyFactor(data,groupby)
   seg = as.data.frame(rowRanges(data))
   bams = unique(samples[,c('sample_id','bam_path')])
@@ -428,25 +430,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     chr = as.character(seg[sid,'seqnames'])
   strand = NA
   
-  covs = list()
-  for(ct in celltypes){
-    cov = list()
-    for(i in seq_len(nrow(bams))){
-      tagFilter = list()
-      tagFilter$CB = barcodes$barcode[barcodes$sample_id == bams$sample_id[i] & !is.na(barcodes$celltype) & barcodes$celltype==ct] 
-      
-      if(length(tagFilter$CB)==0) next
-      cov[[length(cov)+1]] = getReadCoverage(bams$bam_path[i],
-                                             chr,start,stop,strand=strand,scanBamFlags=scanBamFlags,tagFilter = tagFilter)
-    }
-    if(length(cov)>1)
-      covs[[ct]] = sumCovs(cov)
-    else
-      covs[[ct]] = cov[[1]]
-  }
-  
-  l = cbind(1,1+seq_len(1+length(celltypes)))
-  
+  # PSI boxplot
   if(!is.null(sid)){
     data = data[sid,]
     psi = calcPSI(data)[1,]
@@ -460,7 +444,10 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     ann$cds.col = 'black'
     f = ann$start >= seg[sid,'start'] & ann$stop <= seg[sid,'end']
     ann$exon.col[f]=ann$cds.col[f] = 'red'
-    
+    if(is.null(celltypes)) {
+      celltypes = rev(names(psi))
+    }
+    l = cbind(1,1+seq_len(1+length(celltypes)))
   }else{
     l = matrix(seq_len(1+length(celltypes)),ncol=1)
     
@@ -469,15 +456,40 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     ann$cds.col = 'black'
   }
   
+  # load coverage
+  if(is.null(covs)){
+    covs = list()
+    for(ct in celltypes){
+      cov = list()
+      for(i in seq_len(nrow(bams))){
+        tagFilter = list()
+        tagFilter$CB = barcodes$barcode[barcodes$sample_id == bams$sample_id[i] & !is.na(barcodes$celltype) & barcodes$celltype==ct] 
+        
+        if(length(tagFilter$CB)==0) next
+        cov[[length(cov)+1]] = getReadCoverage(bams$bam_path[i],
+                                               chr,start,stop,strand=strand,scanBamFlags=scanBamFlags,tagFilter = tagFilter)
+      }
+      if(length(cov)>1)
+        covs[[ct]] = sumCovs(cov)
+      else
+        covs[[ct]] = cov[[1]]
+    }
+  }
   
   layout(l,widths = c(1,3))
   par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(3,13,1.5,0),oma=c(0,0,3,1))
   if(!is.null(sid))
     boxplot(psi,horizontal=TRUE,las=1,xlab='PSI')
+  par(mar=c(0,6,1.1,0))
   for(ct in celltypes){
+    ylim = c(0,max(covs[[ct]]$juncs$score,covs[[ct]]$cov@values))
+    if(ylim_by_junc){
+      ylim = c(0,max(covs[[ct]]$juncs$score))
+    }
     plotReadCov(covs[[ct]],xlim=c(start,stop),ylab='Coverage',xlab=chr,main=ct,
                 plot.junc.only.within=plot.junc.only.within,min.junc.cov = min.junc.cov,
-                min.junc.cov.f=min.junc.cov.f)
+                min.junc.cov.f=min.junc.cov.f,ylim=ylim,
+                xaxt=ifelse(ct == celltypes[length(celltypes)],'s','n'))
   }
 
   
@@ -485,6 +497,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   
   if(!is.null(sid))
     mtext(paste0(sid,' ', gene.descr[seg[sid,'gene_id'],'name'],'\n',gene.descr[seg[sid,'gene_id'],'descr']),side = 3,outer = TRUE)
+  invisible(covs)
 }
 
 readRDSifExists = function(f){
