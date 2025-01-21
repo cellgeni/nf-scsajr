@@ -10,6 +10,7 @@ gtf_path = args[1]
 sajr_path = args[2]
 
 seg = SAJR::loadSAData(sajr_path)
+segs = addIsCogingByEnsGTF(ens.gtf = gtf_path,segs)
 seg = SAJR::setSplSiteTypes(seg,sajr_path)$seg
 seg$length = seg$stop-seg$start+1
 

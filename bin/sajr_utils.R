@@ -116,10 +116,10 @@ getGroupbyFactor = function(data,groupby,sep=DELIMETER){
 
 testAllGroupsAS = function(data,groupby,.parallel=FALSE){
   groupby = getGroupbyFactor(data,groupby)
-  pv = fitASglm(data,x ~ group,list(group=groupby),return.pv = TRUE,.parallel=.parallel)
+  pv = fitASglm(data,formula = x ~ group,terms = list(group=groupby),return.pv = TRUE,.parallel=.parallel)
   pv = as.data.frame(pv)
   pv$group_fdr = p.adjust(pv$group,m='BH')
-  pv = cbind(pv,get_dPSI(data,data$celltype,min_cov = 50))
+  pv = cbind(pv,get_dPSI(data,groupby,min_cov = 50))
 }
 
 findMarkerAS = function(data,groupby,.parallel=FALSE,verbose=FALSE){
@@ -141,6 +141,16 @@ findMarkerAS = function(data,groupby,.parallel=FALSE,verbose=FALSE){
        dpsi = ctdpsi)
 }
 
+selectMarkersFromAll_celltype_test = function(pv,fdr_thr=0.05,dpsi_thr=0.1){
+  pv = pv[pv$group_fdr<fdr_thr & pv$dpsi>dpsi_thr,]
+  pv = data.frame(pv=pv$group,
+             fdr = pv$group_fdr,
+             dpsi = pv$dpsi,
+             seg_id = rownames(pv),
+             group = pv$high_state)
+  rownames(pv) = pv$seg_id
+  pv
+}
 
 selectMarkers = function(mar,n=5,fdr_thr=0.05,dpsi_thr=0.1,clean_duplicates = TRUE){
   res = NULL
@@ -153,7 +163,7 @@ selectMarkers = function(mar,n=5,fdr_thr=0.05,dpsi_thr=0.1,clean_duplicates = TR
                    dpsi = mar$dpsi[f,ct],
                    seg_id = rownames(mar$pv)[f],
                    group=ct)
-    t = t[order(abs(t$dpsi),decreasing = TRUE)[1:min(5,nrow(t))],]
+    t = t[order(abs(t$dpsi),decreasing = TRUE)[1:min(n,nrow(t))],]
     res = rbind(res,t)
   }
   rownames(res) = NULL
@@ -164,6 +174,49 @@ selectMarkers = function(mar,n=5,fdr_thr=0.05,dpsi_thr=0.1,clean_duplicates = TR
   res = res[order(abs(res$dpsi),decreasing = TRUE),]
   res
 }
+
+selectAllMarkers = function(markers,all_celltype_test,dpsi_thr,fdr_thr=0.05,n=Inf){
+  m1 = selectMarkers(markers,dpsi_thr = dpsi_thr,n = Inf,fdr_thr = fdr_thr,clean_duplicates = TRUE)
+  m1 = cbind(m1,is_marker=TRUE)
+  m2 = selectMarkersFromAll_celltype_test(all_celltype_test,dpsi_thr = dpsi_thr,fdr_thr = fdr_thr)
+  m2 = cbind(m2,is_marker=FALSE)
+  m2 = m2[!(m2$seg_id %in% m1$seg_id),] 
+  r = rbind(m1,m2)
+  r = do.call(rbind,lapply(split(r,r$group),function(x){
+    x[order(x$is_marker,abs(x$dpsi),decreasing = TRUE)[1:min(n,nrow(x))],]
+  }))
+  rownames(r) = r$seg_id
+  r
+}
+
+addIsCogingByEnsGTF = function(ens.gtf,as){
+  t=Sys.time()
+  
+  cds = read.table(ens.gtf,sep = '\t',header=FALSE,comment.char = '#')[,c(1,3:5,7)]
+  cds = cds[cds[,2] == 'CDS',-2]
+  colnames(cds) = c('chr_id','start','stop','strand')
+  
+  # rename to 'chr' if it helps
+  f = !(cds$chr_id %in% as$seg$chr_id) & (paste0('chr',cds$chr_id) %in% as$seg$chr_id)
+  cds$chr_id[f] = paste0('chr',cds$chr_id[f])
+  
+  seqinf = Seqinfo(unique(c(cds$chr_id,as$seg$chr_id)))
+  cds = GRanges(cds$chr_id ,IRanges(cds$start,cds$stop),cds$strand,seqinfo = seqinf)
+  cds = reduce(cds)
+  
+  seg.r = GRanges(as$seg$chr_id,IRanges(as$seg$start,as$seg$stop),ifelse(is.na(as$seg$strand),'*',ifelse(as$seg$strand==1,"+","-")),seqinfo = seqinf)
+  overlap = findOverlaps(seg.r,cds,type='any',ignore.strand = FALSE,select='all')@from
+  cat('map1: ',as.numeric(Sys.time()-t, units = "secs"),"\n")
+  include = findOverlaps(seg.r,cds,type="within",ignore.strand = FALSE,select='all')@from
+  cat('map2: ',as.numeric(Sys.time()-t, units = "secs"),"\n")
+  as$seg$cod = 'n'
+  as$seg$cod[overlap] = 'p'
+  as$seg$cod[include] = 'c'
+  cod.genes = as$seg$gene_id[as$seg$cod != 'n']
+  as$seg$cod.gene = as$seg$gene_id %in% cod.genes
+  as
+}
+
 
 pseudobulk = function(data,groupby,cleanDerivatives=c('psi','cpm')){
   groupby = getGroupbyFactor(data,groupby)
@@ -256,6 +309,8 @@ markerHeatmap = function(data,data_ge,groupby,markers,psi_scale=FALSE,
   # choose isoform that is up
   psi[,markers$dpsi<0] = 1 - psi[,markers$dpsi<0]
   
+  if(is.null(markers$is_marker))
+    markers$is_marker = TRUE
   
   
   if(is.null(group_col))
@@ -292,11 +347,22 @@ markerHeatmap = function(data,data_ge,groupby,markers,psi_scale=FALSE,
     cpm.zlim = c(-cpm.zlim,cpm.zlim)
   }
   
+  rowAnns = list(ct = markers$group,
+                 is_marker = as.character(markers$is_marker),
+                 psi_flipped = as.character(markers$dpsi<0))
+  log2col = c('TRUE'='gray','FALSE'='white')
+  rowAnnCols = list(ct=group_col,
+                    is_marker=log2col,
+                    psi_flipped=log2col)
+  
+  xaxlab = rownames(psi)
+  if(par('mfrow')[1] == 2)
+    xaxlab = NULL  
   imageWithText(psi,'',colAnns = list(ct=rownames(psi)),
-                rowAnns = list(ct=markers$group),
+                rowAnns = rowAnns,
                 colAnnCols = list(ct=group_col),
-                rowAnnCols = list(ct=group_col),
-                xaxlab=NULL,
+                rowAnnCols = rowAnnCols,
+                xaxlab=xaxlab,
                 main='Alternative Splicing',
                 col=col,zlim=psi.zlim,...)
   if(!psi_scale){
@@ -309,9 +375,9 @@ markerHeatmap = function(data,data_ge,groupby,markers,psi_scale=FALSE,
   }
   
   imageWithText(cpm,'',colAnns = list(ct=rownames(psi)),
-                rowAnns = list(ct=markers$group),
+                rowAnns = rowAnns,
                 colAnnCols = list(ct=group_col),
-                rowAnnCols = list(ct=group_col),
+                rowAnnCols = rowAnnCols,
                 main='Gene Expression',
                 col=col,zlim=cpm.zlim,...)
   
@@ -326,6 +392,22 @@ markerHeatmap = function(data,data_ge,groupby,markers,psi_scale=FALSE,
 
 
 # pipeline helpers ######
+loadIntronsAsSE = function(path){
+  cnts = readNamedMM(path)
+  seg = do.call(rbind,strsplit(rownames(cnts),':'))
+  coors = do.call(rbind,strsplit(seg[,3],'-'))
+  
+  rowRanges = GRanges(seg[,1],
+                      IRanges(start = as.numeric(coors[,1]),end = as.numeric(coors[,2])),
+                      strand=ifelse(seg[,2]=='1','+',ifelse(seg[,2]=='-1','-','*')),
+                      feature_id=rownames(cnts))
+  
+  res = SummarizedExperiment(assays=list(counts=cnts),
+                             rowRanges=rowRanges,
+                             colData=data.frame(barcode=colnames(cnts)))
+  res
+}
+
 readNamedMM = function(f){
   require(Matrix)
   if(file.exists(paste0(f,'.mtx'))){
@@ -408,6 +490,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                covs = NULL,
                                celltypes = NULL,
                                data,
+                               data_ge,
                                groupby,
                                barcodes,
                                samples,
@@ -417,8 +500,19 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                min.junc.cov.f = 0.01,
                                min.junc.cov = 3,
                                gtf,
-                               ylim_by_junc = FALSE){
+                               ylim_by_junc = FALSE,
+                               ylim=NULL,
+                               oma=c(6,34,3,1)){
+  
+  if(length(groupby) != 1 || !(groupby %in% colnames(gepb@colData)) || !(groupby %in% colnames(data_ge@colData)))
+    stop("'groupby' should be column name in data and data_ge")
+  if(groupby %in% colnames(barcodes))
+    barcodes$celltype = barcodes[,groupby]
+  
+  groupby_ge = getGroupbyFactor(data_ge,groupby)
   groupby = getGroupbyFactor(data,groupby)
+  
+  
   seg = as.data.frame(rowRanges(data))
   bams = unique(samples[,c('sample_id','bam_path')])
   
@@ -432,6 +526,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   
   # PSI boxplot
   if(!is.null(sid)){
+    gid = seg[sid,'gene_id']
     data = data[sid,]
     psi = calcPSI(data)[1,]
     psi = split(psi, groupby)
@@ -439,7 +534,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     psi = psi[sapply(psi,length)>0]
     psi = psi[order(sapply(psi,mean))]
     
-    ann = gtf[gtf$gene_id==seg[sid,'gene_id'],] # in this way it doesn't depends on chr naming
+    ann = gtf[gtf$gene_id==gid,] # in this way it doesn't depends on chr naming
     ann$exon.col = 'black'
     ann$cds.col = 'black'
     f = ann$start >= seg[sid,'start'] & ann$stop <= seg[sid,'end']
@@ -447,7 +542,11 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     if(is.null(celltypes)) {
       celltypes = rev(names(psi))
     }
-    l = cbind(1,1+seq_len(1+length(celltypes)))
+    l = cbind(c(rep(1,length(celltypes)),length(celltypes)+4),
+              c(rep(2,length(celltypes)),length(celltypes)+4),
+              2+seq_len(1+length(celltypes)))
+    # geneexp
+    cpm = split(log10p1(assay(data_ge,'cpm')[gid,]),groupby_ge)[names(psi)]
   }else{
     l = matrix(seq_len(1+length(celltypes)),ncol=1)
     
@@ -460,6 +559,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   if(is.null(covs)){
     covs = list()
     for(ct in celltypes){
+      cat('.')
       cov = list()
       for(i in seq_len(nrow(bams))){
         tagFilter = list()
@@ -469,35 +569,63 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
         cov[[length(cov)+1]] = getReadCoverage(bams$bam_path[i],
                                                chr,start,stop,strand=strand,scanBamFlags=scanBamFlags,tagFilter = tagFilter)
       }
-      if(length(cov)>1)
+      if(length(cov)>0)
         covs[[ct]] = sumCovs(cov)
-      else
-        covs[[ct]] = cov[[1]]
     }
   }
   
-  layout(l,widths = c(1,3))
-  par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(3,13,1.5,0),oma=c(0,0,3,1))
-  if(!is.null(sid))
-    boxplot(psi,horizontal=TRUE,las=1,xlab='PSI')
-  par(mar=c(0,6,1.1,0))
+  layout(l,widths = c(1,1,3),heights = c(rep(1,nrow(l)-1),4))
+  par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(0,0.5,0,0),oma=oma,xpd=NA)
+  if(!is.null(sid)){
+    plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
+    
+    boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
+    
+    plot(1,t='n',yaxs='i',ylim=c(0.5,length(psi)+0.5),xlim=c(0,1),yaxt='n',xlab='PSI',ylab='')
+    boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt='n')
+  }
+  par(mar=c(0,6,1.1,0),xpd=FALSE)
   for(ct in celltypes){
-    ylim = c(0,max(covs[[ct]]$juncs$score,covs[[ct]]$cov@values))
-    if(ylim_by_junc){
-      ylim = c(0,max(covs[[ct]]$juncs$score))
-    }
-    plotReadCov(covs[[ct]],xlim=c(start,stop),ylab='Coverage',xlab=chr,main=ct,
+    cov = subsetCov(covs[[ct]],start,stop)
+    
+    if(is.null(ylim)){
+      ylim_ = c(0,max(cov$juncs$score,cov$cov@values))
+      if(ylim_by_junc){
+        ylim_ = c(0,max(cov$juncs$score))
+      }
+    }else
+      ylim_ = ylim
+    plotReadCov(cov,xlim=c(start,stop),ylab='Coverage',xlab=chr,main=ct,
                 plot.junc.only.within=plot.junc.only.within,min.junc.cov = min.junc.cov,
-                min.junc.cov.f=min.junc.cov.f,ylim=ylim,
-                xaxt=ifelse(ct == celltypes[length(celltypes)],'s','n'))
+                min.junc.cov.f=min.junc.cov.f,ylim=ylim_,
+                xaxt='n')
+    abline(h=0)
   }
 
-  
+  par(mar=c(3,6,0.2,0))
   plotTranscripts(ann,new = T,exon.col = NA,cds.col = NA,xlim=c(start,stop))
+  
+  # cpm vs psi
+  lncol = ceiling(length(cpm)/20)
+  par(mar=c(3,8*lncol,3,0),xpd=NA)
+  plotVisium(cbind(sapply(cpm,mean),  sapply(psi,mean,na.rm=T)),ylim=c(0,1),
+             names(cpm),t='xy',xaxt = 's',yaxt = 's',pch=16,
+             xlab='l10CPM',ylab='PSI',bty='n',cex=2,xaxs='r',yaxs='r',
+             legend.args = list(x=grconvertX(0,'ndc','user'),y=grconvertY(1,'npc','user'),ncol=lncol))
   
   if(!is.null(sid))
     mtext(paste0(sid,' ', gene.descr[seg[sid,'gene_id'],'name'],'\n',gene.descr[seg[sid,'gene_id'],'descr']),side = 3,outer = TRUE)
   invisible(covs)
+}
+
+subsetCov = function(cov,start,stop){
+  f = cov$x >= start & cov$x<=stop
+  cov$cov  = cov$cov[f]
+  cov$x = cov$x[f]
+  cov$start = start
+  cov$end = stop
+  cov$juncs = cov$juncs[cov$juncs$start<= stop & cov$juncs$end >= start,]
+  cov
 }
 
 readRDSifExists = function(f){
