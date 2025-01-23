@@ -126,7 +126,7 @@ process postprocess {
  
  output:
  path('rds'), emit: rds
- path('examples.pdf')
+ path('examples')
  
  shell:
  '''
