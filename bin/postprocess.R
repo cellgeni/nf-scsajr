@@ -58,12 +58,12 @@ pv = pbas@metadata$all_celltype_test
 
 gene_uni = filterSegmentsAndSamples(pbas_all,seg_min_sd = 0,celltype_min_samples = minsamples,sample_min_ncells = mincells)
 gene_uni = unique(rowData(gene_uni)$gene_id)
-seg = rowData(pbas_all)
+segs = as.data.frame(pbas_all@rowRanges)
 
-gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(seg[rownames(perct$fdr)[f],'gene_id'])})
+gids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){f[is.na(f)] = FALSE;unique(segs[rownames(perct$fdr)[f],'gene_id'])})
 sgn = pv$group_fdr<0.05 & pv$dpsi>0.3
 sgn[is.na(sgn)] = FALSE
-gids$all = unique(seg[rownames(pv)[sgn],'gene_id'])
+gids$all = unique(segs[rownames(pv)[sgn],'gene_id'])
 
 
 tryCatch({
@@ -84,17 +84,17 @@ log_info('GO finished')
 # I'll use only cassette exons
 if(!is.null(domain2seg)){
   domain_sites2use = 'ad'
-  seg_uni = rownames(pbas_all)[seg$is_exon & seg$sites %in% domain_sites2use & seg$gene_id %in% gene_uni]
+  seg_uni = rownames(pbas_all)[segs$is_exon & segs$sites %in% domain_sites2use & segs$gene_id %in% gene_uni]
   
   sids = apply(perct$fdr<0.05 & abs(perct$dpsi)>0.2,2,function(f){
     f[is.na(f)] = FALSE
     out = rownames(perct$fdr)[f]
-    out[seg[out,'sites'] == 'ad' & seg[out,'is_exon']]
+    out[segs[out,'sites'] == 'ad' & segs[out,'is_exon']]
   })
   sgn = pv$group_fdr<0.05 & pv$dpsi>0.3
   sgn[is.na(sgn)] = FALSE
   sids$all = rownames(pv)[sgn]
-  sids$all = sids$all[seg[sids$all,'sites'] == 'ad' & seg[sids$all,'is_exon']]
+  sids$all = sids$all[segs[sids$all,'sites'] == 'ad' & segs[sids$all,'is_exon']]
   
   pbas@metadata$ipro   = compareCluster(sids,
                           fun='enricher',
@@ -110,30 +110,57 @@ saveRDS(pbas,paste0(out.dir,'/pb_as_filtered.rds'))
 log_info('interpro finished')
 
 # Example coverage plots ##########
-N = 100
-f = pv$group_fdr<0.05 & pv$dpsi > 0.3 & rowData(pbas_all)[rownames(pv),'sites'] %in% c('aa','ad','dd') & rowData(pbas_all)[rownames(pv),'is_exon']
-f[is.na(f)] = FALSE
-toplot = pv[f, ]
-toplot = toplot[order(toplot$dpsi,decreasing = TRUE)[1:min(nrow(toplot),N*3)],]
-const_exons = t(sapply(rownames(toplot),function(sid){findNearestConstantExons(pbas_all,sid)}))
-f = !is.na(const_exons[,1]) & !is.na(const_exons[,2])
-toplot = cbind(toplot[f,],const_exons[f,])
-toplot = toplot[order(toplot$dpsi,decreasing = TRUE)[1:min(N,nrow(toplot))],]
+markers = selectAllMarkers(pbas@metadata$markers,pbas@metadata$all_celltype_test,dpsi_thr = 0.2,n = Inf)
+N = min(nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
+markers = markers[order(abs(markers$dpsi)[seq_len(N)],decreasing = TRUE),]
+pbas_mar = pbas_all[markers$seg_id,]
 
+dir.create(paste0(out.dir,'/examples_coverage'))
+dir.create('examples')
 
-pdf('examples.pdf',w=12,h=9)
-for(i in seq_len(nrow(toplot))){
-  cat('\r',i)
-  plotSegmentCoverage(sid = rownames(toplot)[i],
-                      usid = toplot$up[i],
-                      dsid = toplot$down[i],
-                      data = pbas_all,
-                      groupby = pbas_all$celltype,
-                      celltypes = c(toplot$high_state[i],toplot$low_state[i]),
-                      barcodes=barcodes,
-                      samples = samples,
-                      gene.descr = gene.descr,
-                      gtf=gtf)  
-}
-dev.off()
+l_ply(seq_along(markers$seg_id),function(i){
+  sid = markers$seg_id[i]
+  gid = segs[sid,'gene_id']
+  
+  const_exons = findNearestConstantExons(pbas_all,sid)
+  
+  if(is.na(const_exons['up'])){
+    start=gene.descr[gid,'start']
+  }else{
+    start=segs[const_exons['up'],'start'] - 50
+  }
+  
+  if(is.na(const_exons['down'])){
+    stop=gene.descr[gid,'end']
+  }else{
+    stop=segs[const_exons['down'],'end'] + 50
+  }
+
+  pdf(paste0('examples/',substr(10000+i,2,100),"_",gene.descr[gid,'name'],"_",sid,'.pdf'),w=12,h=12) 
+  rdsf = paste0(out.dir,'/examples_coverage/',sid,'.rds')
+  covs = NULL
+  if(file.exists(rdsf))
+    covs = readRDS(rdsf)
+  
+  covs = plotSegmentCoverage(chr=segs[sid,'seqnames'],
+                             start=start,stop=stop,
+                             covs = covs,
+                             sid = sid,
+                             data = pbas_mar,
+                             groupby = 'celltype',
+                             celltypes = NULL,
+                             barcodes=barcodes,
+                             samples = samples,
+                             gene.descr = gene.descr,
+                             plot.junc.only.within = NA,
+                             min.junc.cov.f = 0.02,
+                             min.junc.cov = 5,
+                             ylim_by_junc = T,
+                             gtf=gtf,
+                             oma=c(6,14,3,1)) 
+  dev.off()
+  if(!file.exists(rdsf))
+    saveRDS(covs,rdsf)
+},.parallel = T)
+
 log_info('examples finished')

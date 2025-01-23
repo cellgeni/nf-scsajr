@@ -490,7 +490,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                covs = NULL,
                                celltypes = NULL,
                                data,
-                               data_ge,
+                               data_ge = NULL,
                                groupby,
                                barcodes,
                                samples,
@@ -504,12 +504,13 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                ylim=NULL,
                                oma=c(6,34,3,1)){
   
-  if(length(groupby) != 1 || !(groupby %in% colnames(gepb@colData)) || !(groupby %in% colnames(data_ge@colData)))
+  if(length(groupby) != 1 || !(is.null(data_ge) || groupby %in% colnames(data_ge@colData)) || !(groupby %in% colnames(data@colData)))
     stop("'groupby' should be column name in data and data_ge")
   if(groupby %in% colnames(barcodes))
     barcodes$celltype = barcodes[,groupby]
   
-  groupby_ge = getGroupbyFactor(data_ge,groupby)
+  if(!is.null(data_ge))
+    groupby_ge = getGroupbyFactor(data_ge,groupby)
   groupby = getGroupbyFactor(data,groupby)
   
   
@@ -545,8 +546,13 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
     l = cbind(c(rep(1,length(celltypes)),length(celltypes)+4),
               c(rep(2,length(celltypes)),length(celltypes)+4),
               2+seq_len(1+length(celltypes)))
-    # geneexp
-    cpm = split(log10p1(assay(data_ge,'cpm')[gid,]),groupby_ge)[names(psi)]
+    # gene. exp
+    if(!is.null(data_ge))
+      cpm = split(log10p1(assay(data_ge,'cpm')[gid,]),groupby_ge)[names(psi)]
+    else{
+      l = cbind(c(rep(1,length(celltypes)),length(celltypes)+3),
+                1+seq_len(1+length(celltypes)))
+    }
   }else{
     l = matrix(seq_len(1+length(celltypes)),ncol=1)
     
@@ -573,16 +579,16 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
         covs[[ct]] = sumCovs(cov)
     }
   }
-  
-  layout(l,widths = c(1,1,3),heights = c(rep(1,nrow(l)-1),4))
+  layout(l,widths = c(rep(1,ncol(l)-1),3),heights = c(rep(1,nrow(l)-1),4))
   par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(0,0.5,0,0),oma=oma,xpd=NA)
   if(!is.null(sid)){
-    plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
-    
-    boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
+    if(!is.null(data_ge)){
+      plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
+      boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
+    }
     
     plot(1,t='n',yaxs='i',ylim=c(0.5,length(psi)+0.5),xlim=c(0,1),yaxt='n',xlab='PSI',ylab='')
-    boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt='n')
+    boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt=ifelse(is.null(data_ge),'s','n'))
   }
   par(mar=c(0,6,1.1,0),xpd=FALSE)
   for(ct in celltypes){
@@ -606,13 +612,14 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   plotTranscripts(ann,new = T,exon.col = NA,cds.col = NA,xlim=c(start,stop))
   
   # cpm vs psi
-  lncol = ceiling(length(cpm)/20)
-  par(mar=c(3,8*lncol,3,0),xpd=NA)
-  plotVisium(cbind(sapply(cpm,mean),  sapply(psi,mean,na.rm=T)),ylim=c(0,1),
-             names(cpm),t='xy',xaxt = 's',yaxt = 's',pch=16,
-             xlab='l10CPM',ylab='PSI',bty='n',cex=2,xaxs='r',yaxs='r',
-             legend.args = list(x=grconvertX(0,'ndc','user'),y=grconvertY(1,'npc','user'),ncol=lncol))
-  
+  if(!is.null(data_ge)){
+    lncol = ceiling(length(cpm)/20)
+    par(mar=c(3,8*lncol,3,0),xpd=NA)
+    plotVisium(cbind(sapply(cpm,mean),  sapply(psi,mean,na.rm=T)),ylim=c(0,1),
+               names(cpm),t='xy',xaxt = 's',yaxt = 's',pch=16,
+               xlab='l10CPM',ylab='PSI',bty='n',cex=2,xaxs='r',yaxs='r',
+               legend.args = list(x=grconvertX(0,'ndc','user'),y=grconvertY(1,'npc','user'),ncol=lncol))
+  }
   if(!is.null(sid))
     mtext(paste0(sid,' ', gene.descr[seg[sid,'gene_id'],'name'],'\n',gene.descr[seg[sid,'gene_id'],'descr']),side = 3,outer = TRUE)
   invisible(covs)
