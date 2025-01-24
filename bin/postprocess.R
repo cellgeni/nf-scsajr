@@ -146,7 +146,7 @@ l_ply(seq_along(markers$seg_id),function(i){
                              start=start,stop=stop,
                              covs = covs,
                              sid = sid,
-                             data = pbas_mar,
+                             data_as = pbas_mar,
                              groupby = 'celltype',
                              celltypes = NULL,
                              barcodes=barcodes,

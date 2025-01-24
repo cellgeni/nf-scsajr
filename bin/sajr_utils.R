@@ -485,11 +485,11 @@ castXYtable = function(x,y,i){
   m
 }
 
-plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
+plotSegmentCoverage = function(sid=NULL,
                                chr=NULL,start = NULL,stop=NULL,
                                covs = NULL,
                                celltypes = NULL,
-                               data,
+                               data_as = NULL,
                                data_ge = NULL,
                                groupby,
                                barcodes,
@@ -504,64 +504,88 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
                                ylim=NULL,
                                oma=c(6,34,3,1)){
   
-  if(length(groupby) != 1 || !(is.null(data_ge) || groupby %in% colnames(data_ge@colData)) || !(groupby %in% colnames(data@colData)))
+  # verify arguments
+  if(length(groupby) != 1 || 
+     !(is.null(data_ge) || groupby %in% colnames(data_ge@colData)) || 
+     !(is.null(data_as) || groupby %in% colnames(data_as@colData)))
     stop("'groupby' should be column name in data and data_ge")
-  if(groupby %in% colnames(barcodes))
-    barcodes$celltype = barcodes[,groupby]
   
-  if(!is.null(data_ge))
+  if((is.null(start) || is.null(stop) || is.null(chr)) & 
+     (is.null(sid) || is.null(data_as)))
+    stop("Please define region to plot. It can be provided either as chr,start,stop or as sid,data_as.")
+  
+  # prepare psi if AS and seg_id are given
+  cpm = psi = seg = gid = NULL
+  if(!is.null(sid) && !is.null(data_as)){
+    seg = as.data.frame(rowRanges(data_as))
+    gid = seg[sid,'gene_id']
+    groupby_as = getGroupbyFactor(data_as,groupby)
+    
+    data_as = data_as[sid,]
+    psi = calcPSI(data_as)[1,]
+    psi = split(psi, groupby_as)
+    psi = lapply(psi,na.omit)
+    # uncomment to remove celltypes with no samples with sufficient coverage
+    #psi = psi[sapply(psi,length)>0] 
+    psi = psi[order(sapply(psi,mean))]
+  }
+  
+  # prepare cpm if GE and seg_id are given
+  if(!is.null(data_ge) & !is.null(gid)){
     groupby_ge = getGroupbyFactor(data_ge,groupby)
-  groupby = getGroupbyFactor(data,groupby)
-  
-  
-  seg = as.data.frame(rowRanges(data))
-  bams = unique(samples[,c('sample_id','bam_path')])
-  
+    cpm = split(log10p1(assay(data_ge,'cpm')[gid,]),groupby_ge)[names(psi)]
+  }
+    
+  # define coordinates
   if(is.null(start))
-    start = seg[usid,'start']
+    start = gene.descr[gid,'start']
   if(is.null(stop))
-    stop = seg[dsid,'end']
+    stop = gene.descr[gid,'end']
   if(is.null(chr))
     chr = as.character(seg[sid,'seqnames'])
   strand = NA
   
-  # PSI boxplot
+  
+  # prepare annotation
+  if(!is.null(gid)){
+    gtf = gtf[gtf$gene_id==gid,]
+  }
+  gtf = gtf[gtf$start <= stop & gtf$stop >= start,]
+  gtf$exon.col = 'black'
+  gtf$cds.col = 'black'
+  
   if(!is.null(sid)){
-    gid = seg[sid,'gene_id']
-    data = data[sid,]
-    psi = calcPSI(data)[1,]
-    psi = split(psi, groupby)
-    psi = lapply(psi,na.omit)
-    psi = psi[sapply(psi,length)>0]
-    psi = psi[order(sapply(psi,mean))]
-    
-    ann = gtf[gtf$gene_id==gid,] # in this way it doesn't depends on chr naming
-    ann$exon.col = 'black'
-    ann$cds.col = 'black'
-    f = ann$start >= seg[sid,'start'] & ann$stop <= seg[sid,'end']
-    ann$exon.col[f]=ann$cds.col[f] = 'red'
-    if(is.null(celltypes)) {
-      celltypes = rev(names(psi))
-    }
-    l = cbind(c(rep(1,length(celltypes)),length(celltypes)+4),
-              c(rep(2,length(celltypes)),length(celltypes)+4),
-              2+seq_len(1+length(celltypes)))
-    # gene. exp
-    if(!is.null(data_ge))
-      cpm = split(log10p1(assay(data_ge,'cpm')[gid,]),groupby_ge)[names(psi)]
-    else{
-      l = cbind(c(rep(1,length(celltypes)),length(celltypes)+3),
-                1+seq_len(1+length(celltypes)))
-    }
-  }else{
-    l = matrix(seq_len(1+length(celltypes)),ncol=1)
-    
-    ann = gtf[gtf$start < stop & gtf$stop >= start,] # in this way it doesn't depends on chr naming
-    ann$exon.col = 'black'
-    ann$cds.col = 'black'
+    f = gtf$start <= seg[sid,'end'] & gtf$stop >= seg[sid,'start']
+    gtf$exon.col[f]=gtf$cds.col[f] = 'red'
   }
   
+  # autodetect celltypes. 
+  if(is.null(celltypes) & !is.null(psi)) {
+    celltypes = rev(names(psi))
+  }
+  if(is.null(celltypes))
+    celltypes = unique(barcodes[,groupby])
+  
+  # make layout 
+  l = matrix(seq_len(1+length(celltypes)),ncol=1)
+  if(!is.null(psi)){
+    l = l + 1
+    l = cbind(1,l)
+  }
+  if(!is.null(cpm)){
+    l = l + 1
+    l = cbind(1,l)
+  }
+  if(ncol(l)>1){
+    l[nrow(l),-ncol(l)] = max(l)+1
+  }
+
   # load coverage
+  bams = unique(samples[,c('sample_id','bam_path')])
+  # load coverage if existing is for smaller range
+  if(is.null(covs) || covs[[1]]$start<start || covs[[1]]$end > stop)
+    covs = NULL
+  
   if(is.null(covs)){
     covs = list()
     for(ct in celltypes){
@@ -569,7 +593,7 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
       cov = list()
       for(i in seq_len(nrow(bams))){
         tagFilter = list()
-        tagFilter$CB = barcodes$barcode[barcodes$sample_id == bams$sample_id[i] & !is.na(barcodes$celltype) & barcodes$celltype==ct] 
+        tagFilter$CB = barcodes$barcode[barcodes$sample_id == bams$sample_id[i] & !is.na(barcodes[,groupby]) & barcodes[,groupby]==ct] 
         
         if(length(tagFilter$CB)==0) next
         cov[[length(cov)+1]] = getReadCoverage(bams$bam_path[i],
@@ -579,21 +603,27 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
         covs[[ct]] = sumCovs(cov)
     }
   }
+  
+  # plot
   layout(l,widths = c(rep(1,ncol(l)-1),3),heights = c(rep(1,nrow(l)-1),4))
   par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(0,0.5,0,0),oma=oma,xpd=NA)
-  if(!is.null(sid)){
-    if(!is.null(data_ge)){
-      plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
-      boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
-    }
-    
+  if(!is.null(cpm)){
+    plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
+    boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
+  }
+  if(!is.null(psi)){
     plot(1,t='n',yaxs='i',ylim=c(0.5,length(psi)+0.5),xlim=c(0,1),yaxt='n',xlab='PSI',ylab='')
-    boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt=ifelse(is.null(data_ge),'s','n'))
+    boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt=ifelse(is.null(cpm),'s','n'))
   }
   par(mar=c(0,6,1.1,0),xpd=FALSE)
   for(ct in celltypes){
-    cov = subsetCov(covs[[ct]],start,stop)
-    
+    cov = covs[[ct]]
+    if(is.null(cov)){ # if there are no barcodes
+      plot.new()
+      title(ct)
+      next
+    }
+    cov = subsetCov(cov,start,stop)
     if(is.null(ylim)){
       ylim_ = c(0,max(cov$juncs$score,cov$cov@values))
       if(ylim_by_junc){
@@ -609,10 +639,10 @@ plotSegmentCoverage = function(sid=NULL,usid=NULL,dsid=NULL,
   }
 
   par(mar=c(3,6,0.2,0))
-  plotTranscripts(ann,new = T,exon.col = NA,cds.col = NA,xlim=c(start,stop))
+  plotTranscripts(gtf,new = T,exon.col = NA,cds.col = NA,xlim=c(start,stop))
   
   # cpm vs psi
-  if(!is.null(data_ge)){
+  if(!is.null(cpm) && !is.null(psi)){
     lncol = ceiling(length(cpm)/20)
     par(mar=c(3,8*lncol,3,0),xpd=NA)
     plotVisium(cbind(sapply(cpm,mean),  sapply(psi,mean,na.rm=T)),ylim=c(0,1),
