@@ -503,6 +503,24 @@ getPlotCoordinatesForSeg = function(sid,pb_all,gene.descr){
   list(start=start,stop=stop)
 }
 
+sumCovs = function (l) {
+  r = l[[1]]
+  if (length(l) == 1) 
+    return(r)
+  juncs = unique(do.call(rbind, unname(lapply(l, function(c) c$juncs[, 
+                                                                     1:3]))))
+  juncs$score = rep(0,nrow(juncs))
+  juncs[rownames(r$juncs), "score"] = r$juncs$score
+  for (i in 2:length(l)) {
+    if (!all(r$x == l[[i]]$x)) 
+      stop("objects should cover identicall intervals")
+    r$cov = r$cov + l[[i]]$cov
+    juncs[rownames(l[[i]]$juncs), "score"] = juncs[rownames(l[[i]]$juncs), 
+                                                   "score"] + l[[i]]$juncs$score
+  }
+  r$juncs = juncs
+  r
+}
 
 plotSegmentCoverage = function(sid=NULL,
                                chr=NULL,start = NULL,stop=NULL,
