@@ -114,6 +114,9 @@ markers = selectAllMarkers(pbas@metadata$markers,pbas@metadata$all_celltype_test
 N = min(nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
 markers = markers[order(abs(markers$dpsi),decreasing = TRUE)[seq_len(N)],]
 
+# an attempt to sort examples by both pv and dpsi
+markers = markers[order(-log10(markers$pv)/100+abs(markers$dpsi),decreasing = TRUE),]
+
 # to save RAM we'll keep only data we need for plotting
 pbas_mar = pbas_all[markers$seg_id,]
 pbas_all$all = 'all'
