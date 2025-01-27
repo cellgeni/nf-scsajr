@@ -487,6 +487,7 @@ castXYtable = function(x,y,i){
 
 getPlotCoordinatesForSeg = function(sid,pb_all,gene.descr){
   const_exons = findNearestConstantExons(pb_all,sid)
+  gid = rowRanges(pb_all)[sid,]$gene_id
   
   if(is.na(const_exons['up'])){
     start = gene.descr[gid,'start']
