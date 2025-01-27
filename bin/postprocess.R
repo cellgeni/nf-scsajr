@@ -117,7 +117,7 @@ markers = markers[order(abs(markers$dpsi)[seq_len(N)],decreasing = TRUE),]
 # to save RAM we'll keep only data we need for plotting
 pbas_mar = pbas_all[markers$seg_id,]
 pbas_all$all = 'all'
-pb_all = pseudobulk(pb_all,'all')
+pb_all = pseudobulk(pbas_all,'all')
 gc()
 
 
