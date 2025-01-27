@@ -128,7 +128,7 @@ l_ply(seq_along(markers$seg_id),function(i){
   sid = markers$seg_id[i]
   gid = segs[sid,'gene_id']
   
-  coors = getPlotCoordinatesForSeg(sid,pb_all_total,gene.descr)
+  coors = getPlotCoordinatesForSeg(sid,pb_all,gene.descr)
   
   pdf(paste0('examples/',substr(10000+i,2,100),"_",gene.descr[gid,'name'],"_",sid,'.pdf'),w=12,h=12) 
   rdsf = paste0(out.dir,'/examples_coverage/',sid,'.rds')
