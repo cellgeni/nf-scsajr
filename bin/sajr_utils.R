@@ -647,9 +647,9 @@ plotSegmentCoverage = function(sid=NULL,
     }
     cov = subsetCov(cov,start,stop)
     if(is.null(ylim)){
-      ylim_ = c(0,max(cov$juncs$score,cov$cov@values))
+      ylim_ = c(0,max(1,cov$juncs$score,cov$cov@values))
       if(ylim_by_junc){
-        ylim_ = c(0,max(cov$juncs$score))
+        ylim_ = c(0,max(1,cov$juncs$score))
       }
     }else
       ylim_ = ylim

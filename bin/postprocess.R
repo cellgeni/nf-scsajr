@@ -11,7 +11,7 @@ library(plotCoverage)
 # pbsas, mincells, minsamples, path2samples, path2barcodes, path2ref, path2bin, ncores
 args = commandArgs(trailingOnly=TRUE)
 writeLines(args,'params.txt')
-#args = readLines('params.txt')
+#(args = readLines('params.txt')
 
 mincells = as.integer(args[2])
 minsamples = as.integer(args[3])
