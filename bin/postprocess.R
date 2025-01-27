@@ -113,7 +113,13 @@ log_info('interpro finished')
 markers = selectAllMarkers(pbas@metadata$markers,pbas@metadata$all_celltype_test,dpsi_thr = 0.2,n = Inf)
 N = min(nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
 markers = markers[order(abs(markers$dpsi)[seq_len(N)],decreasing = TRUE),]
+
+# to save RAM we'll keep only data we need for plotting
 pbas_mar = pbas_all[markers$seg_id,]
+pbas_all$all = 'all'
+pb_all = pseudobulk(pb_all,'all')
+gc()
+
 
 dir.create(paste0(out.dir,'/examples_coverage'))
 dir.create('examples')
@@ -122,20 +128,8 @@ l_ply(seq_along(markers$seg_id),function(i){
   sid = markers$seg_id[i]
   gid = segs[sid,'gene_id']
   
-  const_exons = findNearestConstantExons(pbas_all,sid)
+  coors = getPlotCoordinatesForSeg(sid,pb_all_total,gene.descr)
   
-  if(is.na(const_exons['up'])){
-    start=gene.descr[gid,'start']
-  }else{
-    start=segs[const_exons['up'],'start'] - 50
-  }
-  
-  if(is.na(const_exons['down'])){
-    stop=gene.descr[gid,'end']
-  }else{
-    stop=segs[const_exons['down'],'end'] + 50
-  }
-
   pdf(paste0('examples/',substr(10000+i,2,100),"_",gene.descr[gid,'name'],"_",sid,'.pdf'),w=12,h=12) 
   rdsf = paste0(out.dir,'/examples_coverage/',sid,'.rds')
   covs = NULL
@@ -143,7 +137,7 @@ l_ply(seq_along(markers$seg_id),function(i){
     covs = readRDS(rdsf)
   
   covs = plotSegmentCoverage(chr=segs[sid,'seqnames'],
-                             start=start,stop=stop,
+                             start=coors$start,stop=coors$stop,
                              covs = covs,
                              sid = sid,
                              data_as = pbas_mar,

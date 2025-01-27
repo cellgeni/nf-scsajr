@@ -485,6 +485,24 @@ castXYtable = function(x,y,i){
   m
 }
 
+getPlotCoordinatesForSeg = function(sid,pb_all,gene.descr){
+  const_exons = findNearestConstantExons(pb_all,sid)
+  
+  if(is.na(const_exons['up'])){
+    start = gene.descr[gid,'start']
+  }else{
+    start = start(rowRanges(pb_all)[const_exons['up'],]@ranges) - 50
+  }
+  
+  if(is.na(const_exons['down'])){
+    stop = gene.descr[gid,'end']
+  }else{
+    stop = end(rowRanges(pb_all)[const_exons['down'],]@ranges) - 50
+  }
+  list(start=start,stop=stop)
+}
+
+
 plotSegmentCoverage = function(sid=NULL,
                                chr=NULL,start = NULL,stop=NULL,
                                covs = NULL,
@@ -582,14 +600,16 @@ plotSegmentCoverage = function(sid=NULL,
 
   # load coverage
   bams = unique(samples[,c('sample_id','bam_path')])
-  # load coverage if existing is for smaller range
-  if(is.null(covs) || covs[[1]]$start<start || covs[[1]]$end > stop)
-    covs = NULL
+  
   
   if(is.null(covs)){
     covs = list()
-    for(ct in celltypes){
-      cat('.')
+  }
+  for(ct in celltypes){
+    cov = covs[[ct]]
+    # load coverage if existing is for smaller range
+    if(is.null(cov) || cov$start<start || cov$end > stop){
+      cat(substr(ct,1,1))
       cov = list()
       for(i in seq_len(nrow(bams))){
         tagFilter = list()
@@ -603,6 +623,7 @@ plotSegmentCoverage = function(sid=NULL,
         covs[[ct]] = sumCovs(cov)
     }
   }
+  
   
   # plot
   layout(l,widths = c(rep(1,ncol(l)-1),3),heights = c(rep(1,nrow(l)-1),4))
