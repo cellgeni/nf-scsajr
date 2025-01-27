@@ -112,7 +112,7 @@ log_info('interpro finished')
 # Example coverage plots ##########
 markers = selectAllMarkers(pbas@metadata$markers,pbas@metadata$all_celltype_test,dpsi_thr = 0.2,n = Inf)
 N = min(nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
-markers = markers[order(abs(markers$dpsi)[seq_len(N)],decreasing = TRUE),]
+markers = markers[order(abs(markers$dpsi),decreasing = TRUE)[seq_len(N)],]
 
 # to save RAM we'll keep only data we need for plotting
 pbas_mar = pbas_all[markers$seg_id,]
@@ -148,7 +148,7 @@ l_ply(seq_along(markers$seg_id),function(i){
                              gene.descr = gene.descr,
                              plot.junc.only.within = NA,
                              min.junc.cov.f = 0.02,
-                             min.junc.cov = 5,
+                             min.junc.cov = 3,
                              ylim_by_junc = T,
                              gtf=gtf,
                              oma=c(6,14,3,1)) 
