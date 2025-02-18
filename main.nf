@@ -51,33 +51,6 @@ process get_data {
   '''
 }
 
-
-process run_sajr {
-  publishDir "${params.outdir}/sajr/", mode: 'copy', pattern: "${id}"
-  
-  input:
-  tuple val(id), path(bam_path), path(bam_path_id), val(strand), path(ref)
-  
-  output:
-  tuple path(id), val(id), path(bam_path), path(bam_path_id), val(strand)
-  
-  shell:
-  '''
-  mkdir !{id}
-  
-  java -Xmx60G -jar !{projectDir}/bin/sajr.ss.jar \
-    count_reads !{projectDir}/bin/sajr.config \
-    -batch_in=!{bam_path}\
-    -batch_out=!{id}/!{id} \
-    -ann_in=!{ref}/segments.sajr \
-    -stranded=!{strand} \
-    -count_only_border_reads=true
-  
-  gzip !{id}/*
-  '''
-}
-
-
 process combine_sajr_output {
  label "pseudobulk"
  
@@ -92,7 +65,7 @@ process combine_sajr_output {
  
  shell:
  '''
- Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin  !{params.ncores}
+ Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
  '''
 }
 
@@ -134,6 +107,64 @@ process postprocess {
  '''
 }
 
+process make_chr_list {
+  input:
+  path(ref)
+  
+  output:
+  path('chrs.txt'), emit: rds
+  
+  shell:
+  '''
+  # larger chrs first to be used for strand determination
+  cut -f 1 !{ref}/segments.sajr | grep -v '#' | sort | uniq -c | sort -nr | sed  's/^[[:blank:]]*//' | cut -d ' ' -f2 > chrs.txt
+  '''
+}
+
+process determine_strand {
+  input:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), val(chr)
+  
+  output:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
+  
+  shell:
+  '''
+  
+  mkdir p m
+  
+  !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 > p/log &
+  !{projectDir}/bin/run_sajr.sh !{bam_path} m/p !{ref}/segments.sajr -1 !{chr} 1000000 > m/log &
+  wait
+  
+  m=`grep 'exon records' m/log | cut -d ' ' -f4`
+  p=`grep 'exon records' p/log | cut -d ' ' -f4`
+  
+  if [ $p -gt $m ]
+  then
+   echo -n '1'
+  else
+   echo -n '-1'
+  fi
+  '''
+}
+
+process run_sajr_per_chr {
+  
+  input:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), val(strand), val(chr)
+  
+  output:
+  tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
+  
+  shell:
+  '''
+  mkdir !{id}
+  !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 > !{id}/!{chr}.log
+  '''
+}
+
+
 
 process generate_summary {
  publishDir "${params.outdir}/", mode: 'copy'
@@ -159,12 +190,16 @@ workflow  {
   ch_ref = Channel.fromPath(params.ref)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
-  ch_data = ch_data.combine(Channel.of(-1,1))
-  ch_data = ch_data.combine(ch_ref)
-  ch_data | run_sajr | set {sajr_outs}
-  sajrout_path_file = sajr_outs.collectFile{item -> ["sajr_outs.txt", item[0].toString()  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[4] + "\n"]}
-  combine_sajr_output(sajrout_path_file,ch_barcodes,ch_ref,sajr_outs.count())
+  ch_chrs = make_chr_list(ch_ref).splitText().map { it.trim() }
+  ch_data = ch_data.combine(ch_ref).combine(ch_chrs.first())
+  ch_data | determine_strand | set {ch_data}
+  ch_data = ch_data.combine(ch_chrs)
+  ch_data | run_sajr_per_chr | set {sajr_outs}
   
+  sajrout_path_file = sajr_outs.collectFile{item -> ["sajr_outs.txt", item[0]  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[5]  + "\n"]}
+
+  combine_sajr_output(sajrout_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
+
   bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
   postprocess(combine_sajr_output.out.rds,bam_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)

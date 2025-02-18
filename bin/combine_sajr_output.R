@@ -6,11 +6,11 @@ library(doMC)
 library(plyr)
 
 # parse args ##############
-# samples_file, barcodes_file, path2ref (folder), path2bin
+# sajr_outs_file, barcodes_file, path2ref (folder), path2bin
 args = commandArgs(trailingOnly=TRUE)
 writeLines(args,'params.txt')
 #args = readLines('params.txt')
-path2samples = args[1]
+path2sajr_outs = args[1]
 path2barcodes = args[2]
 path2ref = args[3]
 path2bin = args[4]
@@ -20,8 +20,8 @@ source(paste0(path2bin,'/sajr_utils.R'))
 doMC::registerDoMC(ncores)
 
 # load input ############
-samples  = read.table(path2samples,sep=' ')
-colnames(samples) = c('sajr_out','sample_id','bam_path','bai_path','strand')
+sajr_outs  = read.table(path2sajr_outs,sep=' ')
+colnames(sajr_outs) = c('sample_id','chr','sajr_out','bam_path','strand')
 barcodes = read.table(path2barcodes,sep='\t')
 colnames(barcodes) = c('sample_id','barcode','celltype')
 barcodes$celltype[is.na(barcodes$celltype)] = 'NA'
@@ -39,13 +39,29 @@ dir.create(out.dir)
 log_info('initializing finished')
 
 # load sajr ####################
-pbasl = llply(seq_len(nrow(samples)),function(i){
-  r = loadSC_AS(seg,paste0(samples$sajr_out[i],'/',samples$sample_id[i]))
-  colnames(r$e) = colnames(r$i) = paste0(samples$sample_id[i],'|',colnames(r$i))
-  saveRDS(r,paste0('rds/',samples$sample_id[i],'_',samples$strand[i],'.rds'))
+samples = unique(sajr_outs$sample_id)
+
+pbasl = llply(seq_along(samples),function(i){
+  sample_sajr_outs = sajr_outs[sajr_outs$sample_id==samples[i],]
+  
+  r_ = lapply(seq_len(nrow(sample_sajr_outs)),function(j){
+    loadSC_AS(seg[seg$chr_id==sample_sajr_outs$chr[j],],paste0(sample_sajr_outs$sajr_out[j],'/',sample_sajr_outs$chr[j]))
+  })
+  
+  cl = unique(unlist(lapply(r_,function(x)colnames(x$i))))
+  
+  r = list(i = rbindMatrix(lapply(r_,function(x)x$i),cl),
+           e = rbindMatrix(lapply(r_,function(x)x$e),cl))
+  r$i = r$i[rownames(seg),]
+  r$e = r$e[rownames(seg),]
+  
+  colnames(r$e) = colnames(r$i) = paste0(sample_sajr_outs$sample_id[i],'|',colnames(r$i))
+  saveRDS(r,paste0('rds/',samples[i],'.rds'))
   
   # calc pseudobulks
   cmn = intersect(rownames(barcodes) , colnames(r$i))
+  if(length(cmn)==0)
+    return(list(i=NULL,e=NULL,cmn = cmn,ncell = 0))
   r$i = r$i[,cmn]
   r$e = r$e[,cmn]
   ncell = rowSums(r$i + r$e > 9)
@@ -60,7 +76,7 @@ pbasl = llply(seq_len(nrow(samples)),function(i){
   mem = gc()
   mem = round(sum(mem[,2])/2^10,digits = 2)
   pbmem = round(unclass(object.size(pb))/2^30,digits = 2)
-  log_info(samples$sample_id[i]," is loaded. Total mem used: ",mem," Gb. Pb size: ",pbmem," Gb")
+  log_info(sample_sajr_outs$sample_id[i]," is loaded. Total mem used: ",mem," Gb. Pb size: ",pbmem," Gb")
   pb
 },.parallel = TRUE)
 
@@ -76,23 +92,8 @@ for(i in seq_along(pbasl)){
 gc()
 log_info('data loaded')
 
-# chose strand #######
-samples$total = sapply(pbasl,function(x)sum(x$i)+sum(x$e))
-cov = as.data.frame(castXYtable(samples$sample_id, samples$strand,samples$total))
-strand = colnames(cov)[unique(apply(cov,1,which.max))]
-if(length(strand)!=1){
-  print(cov)
-  stop("Cannot autodetermine strand")
-}
-log_info("autodetermined strand = '",strand,"'")
-
-f = samples$strand == strand
-file.remove(paste0('rds/',samples$sample_id[!f],'_',samples$strand[!f],'.rds'))
-
-pbasl = pbasl[f]
-samples = samples[f,]
-names(pbasl) = samples$sample_id
-cmnbarcodes = unlist(cmnbarcodesl[f])
+names(pbasl) = samples
+cmnbarcodes = unlist(cmnbarcodesl)
 
 pbas = list(seg=seg,i=NULL,e=NULL)
 for(n in names(pbasl)){
@@ -108,11 +109,15 @@ pbmeta = as.data.frame(do.call(rbind,strsplit(colnames(pbas$i),DEL,fixed = TRUE)
 colnames(pbmeta) = c('sample_id','celltype')
 rownames(pbmeta) = colnames(pbas$i)
 pbmeta$ncells = as.numeric(table(paste0(barcodes$sample_id,DEL,barcodes$celltype))[rownames(pbmeta)])
+s2s = unique(sajr_outs[,c('sample_id','strand')])
+rownames(s2s) = s2s$sample_id
+pbmeta$strand =  s2s[pbmeta$sample_id,'strand']
 
 pbas_se = makeSummarizedExperiment(pbas,pbmeta)
 
 log_info('pseudobulk is made')
 
 # save ##############
+
 saveRDS(barcodes,paste0(out.dir,'/cell_meta.rds'))
 saveRDS(pbas_se,paste0(out.dir,'/pbas.rds'))

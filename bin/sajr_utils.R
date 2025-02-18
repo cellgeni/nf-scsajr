@@ -408,6 +408,23 @@ loadIntronsAsSE = function(path){
   res
 }
 
+rbindMatrix = function(l,cl=NULL){
+  if(is.null(cl))
+    cl = unique(unlist(lapply(l,colnames)))
+  l = lapply(l,function(x)subColsMatrix(x,cl))
+  do.call(rbind,l)
+}
+
+subColsMatrix = function(m,cl){
+  m_ = setdiff(cl,colnames(m))
+  if(length(m_)>0){
+    m_ = Matrix(0,nrow=nrow(m),ncol=length(m_),sparse = TRUE,dimnames = list(rownames(m),m_))
+    m = cbind(m,m_)
+  }
+  m[,cl,drop=FALSE]
+}
+
+
 readNamedMM = function(f){
   require(Matrix)
   if(file.exists(paste0(f,'.mtx'))){
@@ -427,8 +444,8 @@ readNamedMM = function(f){
 loadSC_AS = function(segs,path){
   e = readNamedMM(paste0(path,'.e'))
   i = readNamedMM(paste0(path,'.i'))
-  list(e=e[rownames(segs),],
-       i=i[rownames(segs),colnames(e)])
+  list(e=e[rownames(segs),,drop=FALSE],
+       i=i[rownames(segs),colnames(e),drop=FALSE])
 }
 
 

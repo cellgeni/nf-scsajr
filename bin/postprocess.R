@@ -36,7 +36,7 @@ gene.descr = readRDS(paste0(path2ref,'/functional_annotation/gene.descr.rds'))
 
 # this part not necessary exists
 domain2seg = readRDSifExists(paste0(path2ref,'/functional_annotation/domain2seg.df.rds'))
-interpro   = readRDSifExists(paste0(path2ref,'/functional_annotation/interpro.rds'))
+domain_descr   = readRDSifExists(paste0(path2ref,'/functional_annotation/all_domain_descr.rds'))
 
 # filter #################
 pbas = filterSegmentsAndSamples(pbas_all,celltype_min_samples = minsamples,sample_min_ncells = mincells)
@@ -83,6 +83,10 @@ log_info('GO finished')
 # _domains ##############
 # I'll use only cassette exons
 if(!is.null(domain2seg)){
+  # take only domains with description
+  domain2seg = domain2seg$all
+  domain2seg = domain2seg[domain2seg$domain %in% domain_descr$ENTRY_AC,]
+  
   domain_sites2use = 'ad'
   seg_uni = rownames(pbas_all)[segs$is_exon & segs$sites %in% domain_sites2use & segs$gene_id %in% gene_uni]
   
@@ -100,8 +104,8 @@ if(!is.null(domain2seg)){
                           fun='enricher',
                           universe      = seg_uni,
                           pAdjustMethod = "BH",
-                          TERM2GENE     = domain2seg$interpro,
-                          TERM2NAME = interpro[,-2])
+                          TERM2GENE     = domain2seg,
+                          TERM2NAME = domain_descr[,c('ENTRY_AC','ENTRY_NAME')])
 }
 
 saveRDS(pbas,paste0(out.dir,'/pb_as_filtered.rds'))
@@ -111,7 +115,7 @@ log_info('interpro finished')
 
 # Example coverage plots ##########
 markers = selectAllMarkers(pbas@metadata$markers,pbas@metadata$all_celltype_test,dpsi_thr = 0.2,n = Inf)
-N = min(nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
+N = min(200,nrow(markers),max(sum(abs(markers$dpsi)>0.5),100))
 markers = markers[order(abs(markers$dpsi),decreasing = TRUE)[seq_len(N)],]
 
 # an attempt to sort examples by both pv and dpsi
