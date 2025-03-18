@@ -49,7 +49,7 @@ pbasl = llply(seq_len(nrow(samples)),function(i){
     stop(paste0("Sample '",samples$sample_id[i],"' has more than one rds!"))
   
   r = readRDS(fname)
-    # calc pseudobulks
+  # calc pseudobulks
   cmn = intersect(rownames(barcodes) , colnames(r$i))
   r$i = r$i[,cmn]
   r$e = r$e[,cmn]

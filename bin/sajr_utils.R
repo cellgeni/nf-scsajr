@@ -120,7 +120,23 @@ testAllGroupsAS = function(data,groupby,.parallel=FALSE){
   pv = as.data.frame(pv)
   pv$group_fdr = p.adjust(pv$group,m='BH')
   pv = cbind(pv,get_dPSI(data,groupby,min_cov = 50))
+  pv
 }
+
+testPairAS = function(data,groupby,conditions,.parallel=FALSE){
+  groupby = getGroupbyFactor(data,groupby)
+  f = groupby %in% conditions
+  groupby = groupby[f]
+  data = data[,f]
+  pv = fitASglm(data,formula = x ~ group,terms = list(group=groupby),return.pv = TRUE,.parallel=.parallel)
+  pv = as.data.frame(pv)
+  pv$group_fdr = p.adjust(pv$group,m='BH')
+  psi=calcPSI(pseudobulk(data,groupby))[,conditions]
+  pv = cbind(pv,dpsi=psi[,2]-psi[,1])
+  colnames(pv) = c('overdispersion','pv','fdr','dpsi')
+  pv
+}
+
 
 findMarkerAS = function(data,groupby,.parallel=FALSE,verbose=FALSE){
   groupby = getGroupbyFactor(data,groupby)
@@ -299,10 +315,13 @@ markerHeatmap = function(data,data_ge,groupby,markers,psi_scale=FALSE,
                          cpm_scale=TRUE,group_col=NULL,col=rev(hcl.colors(100, "RdYlBu")),
                          gene_names_col=NULL,...){
   data = pseudobulk(data,groupby)
-  data_ge = pseudobulk(data_ge,groupby)
-  
   assay(data,'psi') = calcPSI(data)
-  assay(data_ge,'cpm') = calcCPM(data_ge)
+  
+  # I'll not cleam cpm in case there is no counts
+  data_ge = pseudobulk(data_ge,groupby,cleanDerivatives = c())
+  if('counts' %in% assayNames(data_ge))
+    assay(data_ge,'cpm') = calcCPM(data_ge)
+    
   
   # PSI
   psi = t(assay(data,'psi')[markers$seg_id,])
@@ -547,7 +566,7 @@ plotSegmentCoverage = function(sid=NULL,
                                data_ge = NULL,
                                groupby,
                                barcodes,
-                               samples,
+                               samples = NULL,
                                gene.descr,
                                scanBamFlags=list(isNotPassingQualityControls=FALSE,isDuplicate=FALSE,isSupplementaryAlignment=FALSE,isSecondaryAlignment=FALSE),
                                plot.junc.only.within=NA,
@@ -576,7 +595,10 @@ plotSegmentCoverage = function(sid=NULL,
     groupby_as = getGroupbyFactor(data_as,groupby)
     
     data_as = data_as[sid,]
-    psi = calcPSI(data_as)[1,]
+    if('psi' %in% assayNames(data_as))
+      psi = assay(data_as,'psi')
+    else
+      psi = calcPSI(data_as)[1,]
     psi = split(psi, groupby_as)
     psi = lapply(psi,na.omit)
     # uncomment to remove celltypes with no samples with sufficient coverage
@@ -604,7 +626,7 @@ plotSegmentCoverage = function(sid=NULL,
   if(!is.null(gid)){
     gtf = gtf[gtf$gene_id==gid,]
   }
-  gtf = gtf[gtf$start <= stop & gtf$stop >= start,]
+  #gtf = gtf[gtf$start <= stop & gtf$stop >= start,]
   gtf$exon.col = 'black'
   gtf$cds.col = 'black'
   
@@ -644,7 +666,7 @@ plotSegmentCoverage = function(sid=NULL,
   for(ct in celltypes){
     cov = covs[[ct]]
     # load coverage if existing is for smaller range
-    if(is.null(cov) || cov$start<start || cov$end > stop){
+    if(is.null(cov) || start < cov$start || stop > cov$end){
       cat(substr(ct,1,1))
       cov = list()
       for(i in seq_len(nrow(bams))){
@@ -662,14 +684,18 @@ plotSegmentCoverage = function(sid=NULL,
   
   
   # plot
+  cpm_all = cpm
+  psi_all = psi
+  cpm = cpm[rev(celltypes)]
+  psi = psi[rev(celltypes)]
   layout(l,widths = c(rep(1,ncol(l)-1),3),heights = c(rep(1,nrow(l)-1),4))
   par(bty='n',tcl=-0.2,mgp=c(1.3,0.3,0),mar=c(0,0.5,0,0),oma=oma,xpd=NA)
   if(!is.null(cpm)){
-    plot(1,t='n',yaxs='i',ylim=c(0.5,length(cpm)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
+    plot(1,t='n',yaxs='i',ylim=c(0.5,length(celltypes)+0.5),xlim=c(0,max(unlist(cpm))),yaxt='n',xlab='l10CPM',ylab='')
     boxplot(cpm,horizontal=TRUE,las=1,add=TRUE,xpd=NA,cex.axis=2,xaxt='n')
   }
   if(!is.null(psi)){
-    plot(1,t='n',yaxs='i',ylim=c(0.5,length(psi)+0.5),xlim=c(0,1),yaxt='n',xlab='PSI',ylab='')
+    plot(1,t='n',yaxs='i',ylim=c(0.5,length(celltypes)+0.5),xlim=c(0,1),yaxt='n',xlab='PSI',ylab='')
     boxplot(psi,horizontal=TRUE,las=1,add=TRUE,yaxt=ifelse(is.null(cpm),'s','n'))
   }
   par(mar=c(0,6,1.1,0),xpd=FALSE)
@@ -681,10 +707,19 @@ plotSegmentCoverage = function(sid=NULL,
       next
     }
     cov = subsetCov(cov,start,stop)
+    # determine ylim
+    junc_filter = rep(TRUE,nrow(cov$juncs))
+    if(!is.na(plot.junc.only.within) & plot.junc.only.within){
+      junc_filter = cov$juncs$start >= start & cov$juncs$end <= stop
+    }
+    if(!is.na(plot.junc.only.within) & !plot.junc.only.within){
+      junc_filter = (cov$juncs$start >= start & cov$juncs$start <= stop) |
+                    (cov$juncs$end >= start & cov$juncs$end <= stop)
+    }
     if(is.null(ylim)){
-      ylim_ = c(0,max(1,cov$juncs$score,cov$cov@values))
+      ylim_ = c(0,max(1,cov$juncs$score[junc_filter],cov$cov@values))
       if(ylim_by_junc){
-        ylim_ = c(0,max(1,cov$juncs$score))
+        ylim_ = c(0,max(1,cov$juncs$score[junc_filter]))
       }
     }else
       ylim_ = ylim
@@ -700,10 +735,10 @@ plotSegmentCoverage = function(sid=NULL,
   
   # cpm vs psi
   if(!is.null(cpm) && !is.null(psi)){
-    lncol = ceiling(length(cpm)/20)
+    lncol = ceiling(length(psi_all)/30)
     par(mar=c(3,8*lncol,3,0),xpd=NA)
-    plotVisium(cbind(sapply(cpm,mean),  sapply(psi,mean,na.rm=T)),ylim=c(0,1),
-               names(cpm),t='xy',xaxt = 's',yaxt = 's',pch=16,
+    plotVisium(cbind(sapply(cpm_all[names(psi_all)],mean),  sapply(psi_all,mean,na.rm=T)),ylim=c(0,1),
+               names(psi_all),t='xy',xaxt = 's',yaxt = 's',pch=16,
                xlab='l10CPM',ylab='PSI',bty='n',cex=2,xaxs='r',yaxs='r',
                legend.args = list(x=grconvertX(0,'ndc','user'),y=grconvertY(1,'npc','user'),ncol=lncol))
   }
@@ -771,3 +806,155 @@ getDitPlotSize = function(ccr){
            width=length(size) * 0.6 + 7)
   size
 }
+
+# misc ###############
+my_cor.test = function(x,y=x,...){
+  e = n = p  = matrix(NA,nrow=ncol(x),ncol=ncol(y),dimnames=list(colnames(x),colnames(y)))
+  for(i in 1:ncol(x)){
+    for(j in 1:ncol(y)){
+      x_ = x[,i]
+      y_ = y[,j]
+      n[i,j] = sum(!is.na(x_) & !is.na(y_))
+      if(n[i,j]>2){
+        t = cor.test(x_,y_,...)
+        e[i,j] = t$estimate
+        p[i,j] = t$p.value
+      }
+    }
+  }
+  list(e=e,n=n,p=p)
+}
+
+# splice site analyses ############
+annotateExons = function(gtf,fa){
+  gtf$inx = seq_len(nrow(gtf))
+  l = split(gtf,gtf$transcript_id)
+  l = lapply(l,function(x){
+    x = x[order(x$start,decreasing = x$strand=='-'),]
+    f = x$feature=='exon'
+    x$exon_number[f] = seq_len(sum(f))
+    x$transc_exon_count = sum(f)
+    x
+  })
+  gtf = do.call(rbind,l)
+  gtf = gtf[order(gtf$inx),]
+  gtf$inx = NULL
+  gtf$dsite = gtf$asite = NA
+  fp = gtf$feature=='exon' & gtf$strand=='+'
+  fm = gtf$feature=='exon' & gtf$strand=='-'
+  gtf$asite[fp] = getSiteSeq(gtf$chr_id[fp],gtf$start[fp],mars=c(12,5),fa,rev = FALSE)
+  gtf$asite[fm] = getSiteSeq(gtf$chr_id[fm],gtf$stop[fm],mars=c(5,12),fa,rev = TRUE)
+  
+  gtf$dsite[fp] = getSiteSeq(gtf$chr_id[fp],gtf$stop[fp],mars=c(3,5),fa,rev = FALSE)
+  gtf$dsite[fm] = getSiteSeq(gtf$chr_id[fm],gtf$start[fm],mars=c(5,3),fa,rev = TRUE)
+  
+  gtf
+}
+
+getSiteSeq = function(chr,pos,mars,fa,rev=FALSE,as.string=TRUE,toupper=TRUE){
+  res = list()
+  for(i in seq_along(chr)){
+    res[[i]] = fa[[chr[i]]][(pos[i]-mars[1]):(pos[i]+mars[2])]
+    if(rev){
+      res[[i]] = rev(seqinr::comp(res[[i]],ambiguous = TRUE))
+    }
+  }
+  if(as.string){
+    res = sapply(res,paste,collapse='')
+  }
+  if(toupper){
+    res = sapply(res,toupper)
+  }
+  res
+}
+
+plotLogo = function(seq,stackHeight=DiffLogo::informationContent,...){
+  DiffLogo::seqLogo(DiffLogo::getPwmFromAlignment(toupper(seq[!is.na(seq)])),stackHeight=stackHeight,...)
+}
+
+rcomp = function(x){
+  sapply(strsplit(x,''),function(x){
+    paste(rev(seqinr::comp(x)),collapse = '')
+  })
+}
+
+shuffle = function(s,k=1,...){
+  require(Biostrings)
+  require(universalmotif)
+  sapply(s,function(x){
+    as.character(shuffle_sequences(BStringSet(x),k=k,...))  
+  })
+}
+
+findRCompRegions = function(seq,n,shuffle=0,start=0){
+  if(shuffle>0)
+    seq = shuffle(seq,k = shuffle)
+  nmers = data.frame(forward=substring(seq,1:(nchar(seq)-n+1),n:nchar(seq)))
+  nmers$reverse = rcomp(nmers$forward)
+  nmers$pos = 1:nrow(nmers)
+  rc_nmers = NULL
+  for(i in nmers$pos[nmers$forward %in% nmers$reverse]){
+    rinx = nmers$pos[nmers$reverse == nmers$forward[i]]
+    rc_nmers = rbind(rc_nmers,data.frame(fpos=i,rpos=rinx))
+  }
+  if(is.null(rc_nmers))
+    return(NULL)
+  # to not miss palindromes
+  #rc_nmers = rc_nmers[rc_nmers$fpos>=rc_nmers$rpos,]
+  rc_nmers_clean = NULL
+  while(nrow(rc_nmers)>0){
+    seed = rc_nmers[1,]
+    rc_nmers = rc_nmers[-1,]
+    shift = 1
+    repeat{
+      if(nrow(rc_nmers)==0) break
+      match = (rc_nmers$fpos == seed$fpos + shift) & (rc_nmers$rpos == seed$rpos - shift)
+      if(!any(match)) break 
+      rc_nmers = rc_nmers[!match,]
+      shift = shift + 1
+    }
+    shift = shift - 1
+    rc_nmers_clean = rbind(rc_nmers_clean,data.frame(fpos=seed$fpos,
+                                                     rpos=seed$rpos-shift,len=n+shift))
+  }
+  
+  rc_nmers_clean = rc_nmers_clean[rc_nmers_clean$fpos <= rc_nmers_clean$rpos,]
+  
+  rc_nmers_clean$finx = rc_nmers_clean$fpos
+  rc_nmers_clean$rinx = rc_nmers_clean$rpos
+  rc_nmers_clean$fpos = rc_nmers_clean$fpos + start - 1
+  rc_nmers_clean$rpos = rc_nmers_clean$rpos + start - 1
+  rc_nmers_clean = unique(rc_nmers_clean)
+  rc_nmers_clean = rc_nmers_clean[order(rc_nmers_clean$fpos),]
+  rownames(rc_nmers_clean) = paste0(rc_nmers_clean$fpos,'-',rc_nmers_clean$rpos,':',rc_nmers_clean$len)
+  rc_nmers_clean
+}
+
+
+kmerf = function(seqs,k=1){
+  seqs = seqs[!is.na(seqs)]
+  kmers = c()
+  for(s in seqs){
+    starts = seq(1,nchar(s)-k+1,by=1)
+    kmers = append(kmers,substring(s,starts,starts+k-1))
+  }
+  r = table(kmers)
+  setNames(as.numeric(r),names(r))
+}
+
+findMatches = function(seq,pattern,ignore.case=TRUE,do.reverse=TRUE,...){
+  r = gregexpr(pattern,seq,ignore.case=ignore.case,...)[[1]]
+  if(r[1]==-1)
+    r = NULL
+  else
+    r = data.frame(from=r,to=r+attr(r,'match.length')-1,dir='f')
+  if(do.reverse){
+    rpattern = rcomp(pattern)
+    r_ = findMatches(seq,rpattern,ignore.case=ignore.case,do.reverse=FALSE,...)
+    if(!is.null(r_))
+      r_$dir = 'r'
+    r = rbind(r,r_)
+  }
+  r
+}
+

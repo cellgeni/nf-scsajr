@@ -133,8 +133,8 @@ process determine_strand {
   
   mkdir p m
   
-  !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 > p/log &
-  !{projectDir}/bin/run_sajr.sh !{bam_path} m/p !{ref}/segments.sajr -1 !{chr} 1000000 > m/log &
+  !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 !{params.use_bam_dedupl} > p/log &
+  !{projectDir}/bin/run_sajr.sh !{bam_path} m/p !{ref}/segments.sajr -1 !{chr} 1000000 !{params.use_bam_dedupl} > m/log &
   wait
   
   m=`grep 'exon records' m/log | cut -d ' ' -f4`
@@ -160,7 +160,7 @@ process run_sajr_per_chr {
   shell:
   '''
   mkdir !{id}
-  !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 > !{id}/!{chr}.log
+  !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 !{params.use_bam_dedupl} > !{id}/!{chr}.log
   '''
 }
 

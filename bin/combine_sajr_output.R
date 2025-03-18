@@ -55,8 +55,16 @@ pbasl = llply(seq_along(samples),function(i){
   r$i = r$i[rownames(seg),]
   r$e = r$e[rownames(seg),]
   
-  colnames(r$e) = colnames(r$i) = paste0(sample_sajr_outs$sample_id[i],'|',colnames(r$i))
+  colnames(r$e) = colnames(r$i) = paste0(samples[i],'|',colnames(r$i))
   saveRDS(r,paste0('rds/',samples[i],'.rds'))
+  
+  # load introns
+  introns = lapply(seq_len(nrow(sample_sajr_outs)),function(j){
+    readNamedMM(paste0(sample_sajr_outs$sajr_out[j],'/',sample_sajr_outs$chr[j],'.intron'))
+  })
+  introns = rbindMatrix(introns)
+  colnames(introns) = paste0(samples[i],'|',colnames(introns))
+  saveRDS(r,paste0('rds/',samples[i],'intron.rds'))
   
   # calc pseudobulks
   cmn = intersect(rownames(barcodes) , colnames(r$i))
