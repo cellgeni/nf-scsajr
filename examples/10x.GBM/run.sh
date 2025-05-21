@@ -3,11 +3,12 @@
 mkdir 10x.GBM
 cd 10x.GBM
 
-path="https://cf.10xgenomics.com/samples/cell-vdj/4.0.0/Targeted_SC5v1_Human_Glioblastoma_Neuroscience/Targeted_SC5v1_Human_Glioblastoma_Neuroscience"
-curl ${path}_filtered_feature_bc_matrix.h5 -o filtered_feature_bc_matrix.h5
-curl ${path}_possorted_genome_bam.bam -o alignment.bam
-curl ${path}_possorted_genome_bam.bam.bai -o alignment.bam.bai
-curl ${path}_analysis.tar.gz -o clusters.tar.gz
+url="https://cf.10xgenomics.com/samples/cell-vdj/4.0.0/Targeted_SC5v1_Human_Glioblastoma_Neuroscience/Targeted_SC5v1_Human_Glioblastoma_Neuroscience"
+curl ${url}_raw_feature_bc_matrix.h5 -o raw_feature_bc_matrix.h5
+curl ${url}_filtered_feature_bc_matrix.h5 -o filtered_feature_bc_matrix.h5
+curl ${url}_possorted_genome_bam.bam -o alignment.bam
+curl ${url}_possorted_genome_bam.bam.bai -o alignment.bam.bai
+curl ${url}_analysis.tar.gz -o clusters.tar.gz
 
 # prepare input files
 tar -xzf clusters.tar.gz
