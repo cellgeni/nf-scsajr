@@ -193,6 +193,7 @@ process generate_summary {
 
 
 workflow reference {
+  // Generate SAJR reference files from GTF
   make_ref(params.gtf)
 }
 
@@ -211,21 +212,31 @@ workflow repseudobulk {
 
 
 workflow {
+  // Parameter parsing & Channel setup
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_ref = Channel.fromPath(params.ref)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
+
+  // Reference Preparation (future: integrate make_ref when --gtf is provided instead of --ref?)
   ch_chrs = make_chr_list(ch_ref).splitText().map { it.trim() }
+
+  // Chromosome list & Strand determination
   ch_data = ch_data.combine(ch_ref).combine(ch_chrs.first())
   ch_data | determine_strand | set { ch_data }
+
+  // Run SAJR per chromosome
   ch_data = ch_data.combine(ch_chrs)
   ch_data | run_sajr_per_chr | set { sajr_outs }
-
   sajrout_path_file = sajr_outs.collectFile { item -> ["sajr_outs.txt", item[0] + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[5] + "\n"] }
 
+  // Pseudobulk aggregation
   combine_sajr_output(sajrout_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
-
   bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+
+  // Post-processing & filtering
   postprocess(combine_sajr_output.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
+
+  // Report generation
   generate_summary(postprocess.out.rds)
 }
