@@ -1,12 +1,11 @@
 # Conventions:
 # 1. parameter to group observations is always named "groupby". If its length is identical to number of observations 
 #  than it is assumed to be the factor, otherwise it is a list of column names. See getGroupbyFactor
-# 2. 
 
 # TODOs
-# 1. plus it depends on ncells that is not propogated by pseudobulk
-# 3. change all to SE
+# 1. ncells is not propogated by pseudobulk
 
+library(visutils)
 library(SummarizedExperiment)
 # scsajr ################
 DELIMETER = '$'
