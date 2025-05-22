@@ -192,6 +192,24 @@ process generate_summary {
 }
 
 
+workflow reference {
+  make_ref(params.gtf)
+}
+
+
+workflow repseudobulk {
+  ch_barcodes = Channel.fromPath(params.BARCODEFILE)
+  ch_ref = Channel.fromPath(params.ref)
+  ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
+  ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
+  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+
+  remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
+  postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
+  generate_summary(postprocess.out.rds)
+}
+
+
 workflow {
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_ref = Channel.fromPath(params.ref)
@@ -210,22 +228,4 @@ workflow {
   bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
   postprocess(combine_sajr_output.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)
-}
-
-
-workflow repseudobulk {
-  ch_barcodes = Channel.fromPath(params.BARCODEFILE)
-  ch_ref = Channel.fromPath(params.ref)
-  ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
-  ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
-  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
-
-  remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
-  generate_summary(postprocess.out.rds)
-}
-
-
-workflow reference {
-  make_ref(params.gtf)
 }
