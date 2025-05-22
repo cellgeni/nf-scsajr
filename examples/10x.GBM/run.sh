@@ -1,12 +1,14 @@
-# 10k Human PBMCs, 5' v2.0, Chromium X (with intronic reads)
+# Human Glioblastoma Multiforme: 5’v1 Targeted, Neuroscience Panel
 # https://www.10xgenomics.com/datasets/human-glioblastoma-multiforme-5-v-1-targeted-neuroscience-panel-1-standard-4-0-0
 mkdir 10x.GBM
 cd 10x.GBM
 
-path="https://s3-us-west-2.amazonaws.com/10x.files/samples/cell-vdj/4.0.0/Parent_SC5v1_Human_Glioblastoma/Parent_SC5v1_Human_Glioblastoma"
-wget ${path}_possorted_genome_bam.bam -O alignment.bam
-wget ${path}_possorted_genome_bam.bam.bai -O alignment.bam.bai
-wget ${path}_analysis.tar.gz -O clusters.tar.gz
+url="https://cf.10xgenomics.com/samples/cell-vdj/4.0.0/Targeted_SC5v1_Human_Glioblastoma_Neuroscience/Targeted_SC5v1_Human_Glioblastoma_Neuroscience"
+curl ${url}_raw_feature_bc_matrix.h5 -o raw_feature_bc_matrix.h5
+curl ${url}_filtered_feature_bc_matrix.h5 -o filtered_feature_bc_matrix.h5
+curl ${url}_possorted_genome_bam.bam -o alignment.bam
+curl ${url}_possorted_genome_bam.bam.bai -o alignment.bam.bai
+curl ${url}_analysis.tar.gz -o clusters.tar.gz
 
 # prepare input files
 tar -xzf clusters.tar.gz
@@ -15,7 +17,7 @@ awk -F, 'BEGIN { OFS="\t" }; NR>1 {print  "sample",$1,$2}' analysis/clustering/g
 
 # clone repo
 git clone https://github.com/cellgeni/nf-scsajr
-
+ 
 # run pipeline
 nextflow run nf-scsajr \
  --SAMPLEFILE samples.tsv \
