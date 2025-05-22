@@ -1,9 +1,9 @@
-# Human Glioblastoma Multiforme: 5’v1 Targeted, Neuroscience Panel
-# https://www.10xgenomics.com/datasets/human-glioblastoma-multiforme-5-v-1-targeted-neuroscience-panel-1-standard-4-0-0
+# Human Glioblastoma Multiforme: 5’v1 Whole Transcriptome Analysis
+# https://www.10xgenomics.com/datasets/human-glioblastoma-multiforme-5-v-1-whole-transcriptome-analysis-1-standard-4-0-0
 mkdir 10x.GBM
 cd 10x.GBM
 
-url="https://cf.10xgenomics.com/samples/cell-vdj/4.0.0/Targeted_SC5v1_Human_Glioblastoma_Neuroscience/Targeted_SC5v1_Human_Glioblastoma_Neuroscience"
+url="https://s3-us-west-2.amazonaws.com/10x.files/samples/cell-vdj/4.0.0/Parent_SC5v1_Human_Glioblastoma/Parent_SC5v1_Human_Glioblastoma_possorted_genome_bam.bam"
 curl ${url}_raw_feature_bc_matrix.h5 -o raw_feature_bc_matrix.h5
 curl ${url}_filtered_feature_bc_matrix.h5 -o filtered_feature_bc_matrix.h5
 curl ${url}_possorted_genome_bam.bam -o alignment.bam
