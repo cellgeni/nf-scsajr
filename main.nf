@@ -68,8 +68,8 @@ process combine_sajr_output {
 
   shell:
   '''
- Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
- '''
+  Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  '''
 }
 
 
@@ -87,8 +87,8 @@ process remake_pseudobulk {
 
   shell:
   '''
- Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
- '''
+  Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
+  '''
 }
 
 
@@ -108,8 +108,8 @@ process postprocess {
 
   shell:
   '''
- Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
- '''
+  Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  '''
 }
 
 
@@ -147,8 +147,7 @@ process determine_strand {
   m=`grep 'exon records' m/log | cut -d ' ' -f4`
   p=`grep 'exon records' p/log | cut -d ' ' -f4`
   
-  if [ $p -gt $m ]
-  then
+  if [ $p -gt $m ]; then
    echo -n '1'
   else
    echo -n '-1'
@@ -183,11 +182,11 @@ process generate_summary {
 
   shell:
   '''
- cp !{projectDir}/bin/summary.Rmd .
- cp !{projectDir}/bin/sajr_utils.R .
- Rscript -e "wd=getwd();rmarkdown::render('summary.Rmd',
-                    output_file = 'summary.html',
-                    clean = TRUE)"
+  cp !{projectDir}/bin/summary.Rmd .
+  cp !{projectDir}/bin/sajr_utils.R .
+  Rscript -e "wd=getwd();rmarkdown::render('summary.Rmd',
+                     output_file = 'summary.html',
+                     clean = TRUE)"
  '''
 }
 
