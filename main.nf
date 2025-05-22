@@ -1,25 +1,27 @@
 def errorMessage() {
-    log.info"""
+  log.info(
+    """
     ====================
     please provide input parameters --SAMPLEFILE or --BARCODEFILE
     ====================
     """.stripIndent()
-    exit 1
+  )
+  exit(1)
 }
 
 
 process make_ref {
   publishDir "${params.outdir}/", mode: 'copy'
-  
+
   input:
-  path gtf 
-  
+  path gtf
+
   output:
-  path('segments.csv')
-  path('gtf.rds')
-  path('segments.sajr')
-  path('functional_annotation')
-  
+  path 'segments.csv'
+  path 'gtf.rds'
+  path 'segments.sajr'
+  path 'functional_annotation'
+
   shell:
   '''
   java -Xmx10G -jar !{projectDir}/bin/sajr.ss.jar \
@@ -37,7 +39,7 @@ process get_data {
   tuple val(id), val(bam_path)
 
   output:
-  tuple val(id),path('*bam'),path('*bam.bai')
+  tuple val(id), path('*bam'), path('*bam.bai')
 
   shell:
   '''
@@ -51,69 +53,73 @@ process get_data {
   '''
 }
 
+
 process combine_sajr_output {
- label "pseudobulk"
- 
- input:
- path(samples)
- path(barcodes)
- path(ref)
- val(n_samples)
- 
- output:
- path('rds'), emit: rds
- 
- shell:
- '''
+  label "pseudobulk"
+
+  input:
+  path samples
+  path barcodes
+  path ref
+  val n_samples
+
+  output:
+  path ('rds'), emit: rds
+
+  shell:
+  '''
  Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
  '''
 }
 
+
 process remake_pseudobulk {
- label "pseudobulk"
- 
- input:
- path(samples)
- path(barcodes)
- path(ref)
- val(n_samples)
- 
- output:
- path('rds'), emit: rds
- 
- shell:
- '''
+  label "pseudobulk"
+
+  input:
+  path samples
+  path barcodes
+  path ref
+  val n_samples
+
+  output:
+  path ('rds'), emit: rds
+
+  shell:
+  '''
  Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
  '''
 }
 
+
 process postprocess {
- publishDir "${params.outdir}/", mode: 'copy'
- 
- input:
- path(rds)
- path(samples)
- path(barcodes)
- path(ref)
- val(n_samples)
- 
- output:
- path('rds'), emit: rds
- path('examples')
- 
- shell:
- '''
+  publishDir "${params.outdir}/", mode: 'copy'
+
+  input:
+  path rds
+  path samples
+  path barcodes
+  path ref
+  val n_samples
+
+  output:
+  path ('rds'), emit: rds
+  path 'examples'
+
+  shell:
+  '''
  Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
  '''
 }
 
+
 process make_chr_list {
   input:
-  path(ref)
-  
+  path ref
+
   output:
-  path('chrs.txt'), emit: rds
-  
+  path ('chrs.txt'), emit: rds
+
   shell:
   '''
   # larger chrs first to be used for strand determination
@@ -121,13 +127,14 @@ process make_chr_list {
   '''
 }
 
+
 process determine_strand {
   input:
   tuple val(id), path(bam_path), path(bami_path), path(ref), val(chr)
-  
+
   output:
   tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
-  
+
   shell:
   '''
   
@@ -149,14 +156,14 @@ process determine_strand {
   '''
 }
 
+
 process run_sajr_per_chr {
-  
   input:
   tuple val(id), path(bam_path), path(bami_path), path(ref), val(strand), val(chr)
-  
+
   output:
   tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
-  
+
   shell:
   '''
   mkdir !{id}
@@ -165,18 +172,17 @@ process run_sajr_per_chr {
 }
 
 
-
 process generate_summary {
- publishDir "${params.outdir}/", mode: 'copy'
- 
- input:
- path(rds)
- 
- output:
- path('summary.html')
- 
- shell:
- '''
+  publishDir "${params.outdir}/", mode: 'copy'
+
+  input:
+  path rds
+
+  output:
+  path 'summary.html'
+
+  shell:
+  '''
  cp !{projectDir}/bin/summary.Rmd .
  cp !{projectDir}/bin/sajr_utils.R .
  Rscript -e "wd=getwd();rmarkdown::render('summary.Rmd',
@@ -185,35 +191,37 @@ process generate_summary {
  '''
 }
 
-workflow  {
+
+workflow {
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_ref = Channel.fromPath(params.ref)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
-  ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
+  ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
   ch_chrs = make_chr_list(ch_ref).splitText().map { it.trim() }
   ch_data = ch_data.combine(ch_ref).combine(ch_chrs.first())
-  ch_data | determine_strand | set {ch_data}
+  ch_data | determine_strand | set { ch_data }
   ch_data = ch_data.combine(ch_chrs)
-  ch_data | run_sajr_per_chr | set {sajr_outs}
-  
-  sajrout_path_file = sajr_outs.collectFile{item -> ["sajr_outs.txt", item[0]  + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[5]  + "\n"]}
+  ch_data | run_sajr_per_chr | set { sajr_outs }
 
-  combine_sajr_output(sajrout_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
+  sajrout_path_file = sajr_outs.collectFile { item -> ["sajr_outs.txt", item[0] + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[5] + "\n"] }
 
-  bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
-  postprocess(combine_sajr_output.out.rds,bam_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
+  combine_sajr_output(sajrout_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
+
+  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+  postprocess(combine_sajr_output.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)
 }
+
 
 workflow repseudobulk {
   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
   ch_ref = Channel.fromPath(params.ref)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
-  ch_sample_list | flatMap{ it.readLines() } | map { it -> [ it.split()[0], it.split()[1] ] } | get_data | set { ch_data }
-  bam_path_file = ch_data.collectFile{item -> ["bam_paths.txt", item[0].toString()  + " " + item[1] + "\n"]}
-  
-  remake_pseudobulk(ch_sample_list,Channel.fromPath(params.BARCODEFILE),ch_ref,ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds,bam_path_file,ch_barcodes,ch_ref,ch_sample_list.countLines())
+  ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
+  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+
+  remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
+  postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
   generate_summary(postprocess.out.rds)
 }
 
