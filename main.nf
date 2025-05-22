@@ -54,6 +54,64 @@ process get_data {
 }
 
 
+process make_chr_list {
+  input:
+  path ref
+
+  output:
+  path ('chrs.txt'), emit: rds
+
+  shell:
+  '''
+  # larger chrs first to be used for strand determination
+  cut -f 1 !{ref}/segments.sajr | grep -v '#' | sort | uniq -c | sort -nr | sed  's/^[[:blank:]]*//' | cut -d ' ' -f2 > chrs.txt
+  '''
+}
+
+
+process determine_strand {
+  input:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), val(chr)
+
+  output:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
+
+  shell:
+  '''
+  
+  mkdir p m
+  
+  !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 !{params.use_bam_dedupl} > p/log &
+  !{projectDir}/bin/run_sajr.sh !{bam_path} m/p !{ref}/segments.sajr -1 !{chr} 1000000 !{params.use_bam_dedupl} > m/log &
+  wait
+  
+  m=`grep 'exon records' m/log | cut -d ' ' -f4`
+  p=`grep 'exon records' p/log | cut -d ' ' -f4`
+  
+  if [ $p -gt $m ]; then
+   echo -n '1'
+  else
+   echo -n '-1'
+  fi
+  '''
+}
+
+
+process run_sajr_per_chr {
+  input:
+  tuple val(id), path(bam_path), path(bami_path), path(ref), val(strand), val(chr)
+
+  output:
+  tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
+
+  shell:
+  '''
+  mkdir !{id}
+  !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 !{params.use_bam_dedupl} > !{id}/!{chr}.log
+  '''
+}
+
+
 process combine_sajr_output {
   label "pseudobulk"
 
@@ -113,64 +171,6 @@ process postprocess {
 }
 
 
-process make_chr_list {
-  input:
-  path ref
-
-  output:
-  path ('chrs.txt'), emit: rds
-
-  shell:
-  '''
-  # larger chrs first to be used for strand determination
-  cut -f 1 !{ref}/segments.sajr | grep -v '#' | sort | uniq -c | sort -nr | sed  's/^[[:blank:]]*//' | cut -d ' ' -f2 > chrs.txt
-  '''
-}
-
-
-process determine_strand {
-  input:
-  tuple val(id), path(bam_path), path(bami_path), path(ref), val(chr)
-
-  output:
-  tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
-
-  shell:
-  '''
-  
-  mkdir p m
-  
-  !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 !{params.use_bam_dedupl} > p/log &
-  !{projectDir}/bin/run_sajr.sh !{bam_path} m/p !{ref}/segments.sajr -1 !{chr} 1000000 !{params.use_bam_dedupl} > m/log &
-  wait
-  
-  m=`grep 'exon records' m/log | cut -d ' ' -f4`
-  p=`grep 'exon records' p/log | cut -d ' ' -f4`
-  
-  if [ $p -gt $m ]; then
-   echo -n '1'
-  else
-   echo -n '-1'
-  fi
-  '''
-}
-
-
-process run_sajr_per_chr {
-  input:
-  tuple val(id), path(bam_path), path(bami_path), path(ref), val(strand), val(chr)
-
-  output:
-  tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
-
-  shell:
-  '''
-  mkdir !{id}
-  !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 !{params.use_bam_dedupl} > !{id}/!{chr}.log
-  '''
-}
-
-
 process generate_summary {
   publishDir "${params.outdir}/", mode: 'copy'
 
@@ -189,7 +189,6 @@ process generate_summary {
                      clean = TRUE)"
  '''
 }
-
 
 workflow reference {
   // Generate SAJR reference files from GTF
