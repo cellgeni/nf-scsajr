@@ -3,7 +3,7 @@
 mkdir 10x.GBM
 cd 10x.GBM
 
-url="https://s3-us-west-2.amazonaws.com/10x.files/samples/cell-vdj/4.0.0/Parent_SC5v1_Human_Glioblastoma/Parent_SC5v1_Human_Glioblastoma_possorted_genome_bam.bam"
+url="https://s3-us-west-2.amazonaws.com/10x.files/samples/cell-vdj/4.0.0/Parent_SC5v1_Human_Glioblastoma/Parent_SC5v1_Human_Glioblastoma"
 curl ${url}_raw_feature_bc_matrix.h5 -o raw_feature_bc_matrix.h5
 curl ${url}_filtered_feature_bc_matrix.h5 -o filtered_feature_bc_matrix.h5
 curl ${url}_possorted_genome_bam.bam -o alignment.bam
