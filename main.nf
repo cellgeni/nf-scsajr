@@ -80,7 +80,6 @@ process determine_strand {
 
   shell:
   '''
-  
   mkdir p m
   
   !{projectDir}/bin/run_sajr.sh !{bam_path} p/p !{ref}/segments.sajr  1 !{chr} 1000000 !{params.use_bam_dedupl} > p/log &
@@ -90,10 +89,11 @@ process determine_strand {
   m=`grep 'exon records' m/log | cut -d ' ' -f4`
   p=`grep 'exon records' p/log | cut -d ' ' -f4`
   
+  # Output 1 if plus > minus (forward-stranded), -1 if plus <= minus (reverse-stranded)
   if [ $p -gt $m ]; then
-   echo -n '1'
+    echo -n '1'
   else
-   echo -n '-1'
+    echo -n '-1'
   fi
   '''
 }
