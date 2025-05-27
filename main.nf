@@ -24,11 +24,13 @@ process make_ref {
 
   shell:
   '''
+  # Convert GTF to SAJR reference format
   java -Xmx10G -jar !{projectDir}/bin/sajr.ss.jar \
-  gff2sajr !{projectDir}/bin/sajr.config \
-  -ann_foreign=!{gtf} \
-  -ann_out=segments.sajr
+    gff2sajr !{projectDir}/bin/sajr.config \
+      -ann_foreign=!{gtf} \
+      -ann_out=segments.sajr
   
+  # Convert SAJR objects to segments.csv, gtf.rds, and functional_annotation
   Rscript !{projectDir}/bin/prepare_reference.R !{gtf} segments.sajr
   '''
 }
