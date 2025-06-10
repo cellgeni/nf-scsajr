@@ -1,8 +1,10 @@
 options(error = function(e) quit("no", 1))
 
 # devtools::install_github("iaaka/sajr")
+# devtools::install_github("cellgeni/scsajr")
 library(SAJR)
 library(plotCoverage)
+library(scsajr)
 
 # Read command-line args: GTF path and SAJR segments file (converted annotation)
 args <- commandArgs(trailingOnly = TRUE)
@@ -13,7 +15,7 @@ sajr_path <- args[2]
 seg <- SAJR::loadSAData(sajr_path)
 
 # Annotate which segments are coding exons
-segs <- addIsCogingByEnsGTF(ens.gtf = gtf_path, segs) # Where is addIsCogingByEnsGTF defined?
+segs <- scsajr::add_is_coding_by_ens_gtf(gtf_path = gtf_path, segs) # input for func: segs or seg?
 
 # Assign segment types (e.g. ALT, EXN, INT)
 seg <- SAJR::setSplSiteTypes(seg, sajr_path)$seg
