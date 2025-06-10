@@ -12,6 +12,7 @@ genome_pos=$5
 max_reads=$6
 use_bam_dedupl=$7
 
+# RAM assign should be dynamic
 cmd="java -Xmx20G -jar ${path}/sajr.ss.jar \
     count_reads ${path}/sajr.config \
         -batch_in=${bam} \
