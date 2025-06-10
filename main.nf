@@ -22,7 +22,7 @@ process make_ref {
   path 'segments.sajr'
   path 'functional_annotation'
 
-  shell:
+  script:
   '''
   # Convert GTF to SAJR reference format
   java -Xmx10G -jar !{projectDir}/bin/sajr.ss.jar \
@@ -43,7 +43,7 @@ process get_data {
   output:
   tuple val(id), path('*bam'), path('*bam.bai')
 
-  shell:
+  script:
   '''
   if "!{params.bam_on_irods}"; then
     iget -f -v -K "!{bam_path}" "!{id}.bam"
@@ -63,7 +63,7 @@ process make_chr_list {
   output:
   path ('chrs.txt'), emit: rds
 
-  shell:
+  script:
   '''
   # larger chrs first to be used for strand determination
   cut -f 1 !{ref}/segments.sajr | grep -v '#' | sort | uniq -c | sort -nr | sed  's/^[[:blank:]]*//' | cut -d ' ' -f2 > chrs.txt
@@ -78,7 +78,7 @@ process determine_strand {
   output:
   tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
 
-  shell:
+  script:
   '''
   mkdir p m
   
@@ -106,7 +106,7 @@ process run_sajr_per_chr {
   output:
   tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
 
-  shell:
+  script:
   '''
   mkdir !{id}
   !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 !{params.use_bam_dedupl} > !{id}/!{chr}.log
@@ -126,7 +126,7 @@ process combine_sajr_output {
   output:
   path ('rds'), emit: rds
 
-  shell:
+  script:
   '''
   Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
@@ -145,7 +145,7 @@ process remake_pseudobulk {
   output:
   path ('rds'), emit: rds
 
-  shell:
+  script:
   '''
   Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
   '''
@@ -166,7 +166,7 @@ process postprocess {
   path ('rds'), emit: rds
   path 'examples'
 
-  shell:
+  script:
   '''
   Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
@@ -182,7 +182,7 @@ process generate_summary {
   output:
   path 'summary.html'
 
-  shell:
+  script:
   '''
   cp !{projectDir}/bin/summary.Rmd .
   cp !{projectDir}/bin/sajr_utils.R .
