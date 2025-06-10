@@ -1,1 +1,4 @@
 **/.DS_Store
+*_cache
+scsajr_test.Rmd
+repseudobulk.R
