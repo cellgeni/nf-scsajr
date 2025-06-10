@@ -48,7 +48,7 @@ knitr::kable(ct2sam)
 Segments were first filtered by coverage (>9 reads in at least 20% of sample*celltypes) and psi variability (sd>0.1).
 Filtered segments were tested using GLM/LRT using ~celltype model. Segments with fdr < 0.05 and dPSI > 0.3 (between highest and lowest celltype) were considered as significant.
 ```{r fig.height=18,fig.width=6}
-psi <- scsajr::calcpsi(pb)
+psi <- scsajr::calc_psi(pb)
 cor_all <- cor(psi, use = "pair") # cor(t(scale(t(pb$ir),scale = FALSE)),use = 'pair')
 cor_all[is.na(cor_all)] <- 0
 mds_all <- stats::cmdscale(1 - cor_all, k = 2)

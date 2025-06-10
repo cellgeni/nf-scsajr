@@ -48,7 +48,7 @@ seg <- utils::read.csv(segments_path, row.names = 1)
 ## Initialize output directory
 out_dir <- "rds"
 dir.create(out_dir)
-log_info("initializing output directory finished")
+scsajr::log_info("initializing output directory finished")
 
 
 ## Load SAJR outputs and make pseudobulks per sample in parallel

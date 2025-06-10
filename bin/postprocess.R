@@ -35,11 +35,11 @@ samples <- read.table(path2samples, sep = " ", col.names = c("sample_id", "bam_p
 barcodes <- read.table(path2barcodes, sep = "\t", col.names = c("sample_id", "barcode", "celltype"))
 
 gtf <- readRDS(file.path(path2ref, "gtf.rds"))
-gene.descr <- readRDS(file.path(path2ref, "functional_annotation/gene.descr.rds"))
+gene_descr <- readRDS(file.path(path2ref, "functional_annotation/gene.descr.rds"))
 
 # optional domain annotation
-domain2seg <- readRDSifExists(file.path(path2ref, "functional_annotation/domain2seg.df.rds"))
-domain_descr <- readRDSifExists(file.path(path2ref, "functional_annotation/all_domain_descr.rds"))
+domain2seg <- scsajr::read_rds_if_exists(file.path(path2ref, "functional_annotation/domain2seg.df.rds"))
+domain_descr <- scsajr::read_rds_if_exists(file.path(path2ref, "functional_annotation/all_domain_descr.rds"))
 
 
 ## Filtering
@@ -179,8 +179,8 @@ l_ply(seq_along(markers$seg_id), function(i) {
   gid <- segs[sid, "gene_id"]
 
   # get plot coords,a dn previous coverage if exists
-  coors <- scsajr::get_plot_coords_for_seg(sid, pb_all, gene.descr)
-  pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene.descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 12)
+  coors <- scsajr::get_plot_coords_for_seg(sid, pb_all, gene_descr)
+  pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene_descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 12)
 
   covs <- NULL
   rdsf <- paste0(out_dir, "/examples_coverage/", sid, ".rds")
@@ -198,10 +198,10 @@ l_ply(seq_along(markers$seg_id), function(i) {
     celltypes = NULL,
     barcodes = barcodes,
     samples = samples,
-    gene.descr = gene.descr,
-    plot.junc.only.within = NA,
-    min.junc.cov.f = 0.02,
-    min.junc.cov = 3,
+    gene_descr = gene_descr,
+    plot_junc_only_within = NA,
+    min_junc_cov_f = 0.02,
+    min_junc_cov = 3,
     ylim_by_junc = TRUE,
     gtf = gtf,
     oma = c(6, 14, 3, 1)
