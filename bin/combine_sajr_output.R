@@ -4,6 +4,7 @@ library(Matrix)
 library(visutils)
 library(doMC)
 library(plyr)
+library(scsajr)
 
 
 ## Parse arguments
@@ -17,38 +18,36 @@ path2barcodes <- args[2]
 path2ref <- args[3]
 path2bin <- args[4]
 ncores <- as.integer(args[5])
-DEL <- "$" # delimeter to separate sample and celltype
+delimiter <- "$" # delimeter to separate sample and celltype
 
 
 ## Import utility functions
-sajr_utils_path <- file.path(path2bin, "sajr_utils.R")
-source(sajr_utils_path)
 doMC::registerDoMC(ncores)
 
 
 ## Load inputs
-sajr_outs <- read.table(path2sajr_outs, sep = " ")
+sajr_outs <- utils::read.table(path2sajr_outs, sep = " ")
 colnames(sajr_outs) <- c("sample_id", "chr", "sajr_out", "bam_path", "strand")
 
-barcodes <- read.table(path2barcodes,
+barcodes <- utils::read.table(path2barcodes,
   sep = "\t",
   col.names = c("sample_id", "barcode", "celltype")
 )
 barcodes$celltype[is.na(barcodes$celltype)] <- "NA"
 rownames(barcodes) <- paste0(barcodes$sample_id, "|", barcodes$barcode)
 
-# Check for unsupported characters (DEL)
-if (any(grepl(DEL, c(barcodes$sample_id, barcodes$celltype), fixed = TRUE))) {
-  stop(paste0("Celltype names or sample IDs contains '", DEL, "' that is not supported, please get rid of it."))
+# Check for unsupported characters (val: delimiter)
+if (any(grepl(delimiter, c(barcodes$sample_id, barcodes$celltype), fixed = TRUE))) {
+  stop(paste0("Celltype names or sample IDs contains '", delimiter, "' that is not supported, please get rid of it."))
 }
 
 segments_path <- file.path(path2ref, "segments.csv")
-seg <- read.csv(segments_path, row.names = 1)
+seg <- utils::read.csv(segments_path, row.names = 1)
 
 
 ## Initialize output directory
-out.dir <- "rds"
-dir.create(out.dir)
+out_dir <- "rds"
+dir.create(out_dir)
 log_info("initializing output directory finished")
 
 
@@ -65,7 +64,7 @@ pbasl <- llply(seq_along(samples), function(i) {
     chr_prefix <- paste0(sample_sajr_outs$sajr_out[j], "/", sample_sajr_outs$chr[j])
 
     # Returns a list with $e (exon matrix) and $i (intron matrix)
-    loadSC_AS(
+    scsajr::load_sc_as(
       seg[seg$chr_id == sample_sajr_outs$chr[j], ],
       chr_prefix
     )
@@ -75,8 +74,8 @@ pbasl <- llply(seq_along(samples), function(i) {
   cl <- unique(unlist(lapply(r_list, function(x) colnames(x$i))))
 
   # Row-bind all intron matrices and exon matrices into a single matrix
-  i_mat <- rbindMatrix(lapply(r_list, function(x) x$i), cl)
-  e_mat <- rbindMatrix(lapply(r_list, function(x) x$e), cl)
+  i_mat <- scsajr::rbind_matrix(lapply(r_list, function(x) x$i), cl)
+  e_mat <- scsajr::rbind_matrix(lapply(r_list, function(x) x$e), cl)
 
   # Ensure rows follow the master 'seg' ordering
   i_mat <- i_mat[rownames(seg), , drop = FALSE]
@@ -94,9 +93,9 @@ pbasl <- llply(seq_along(samples), function(i) {
 
   # Load intron only matrices per chromosome
   intron_list <- lapply(seq_len(nrow(sample_sajr_outs)), function(j) {
-    readNamedMM(paste0(sample_sajr_outs$sajr_out[j], "/", sample_sajr_outs$chr[j], ".intron"))
+    scsajr::read_named_mm(paste0(sample_sajr_outs$sajr_out[j], "/", sample_sajr_outs$chr[j], ".intron"))
   })
-  intron_mat <- rbindMatrix(intron_list)
+  intron_mat <- scsajr::rbind_matrix(intron_list)
   colnames(intron_mat) <- paste0(sample, "|", colnames(intron_mat))
   saveRDS(
     intron_mat,
@@ -120,7 +119,7 @@ pbasl <- llply(seq_along(samples), function(i) {
   # Build the grouping factor "sample|celltype" for pseudobulk
   f <- paste0(
     barcodes[cmn, "sample_id"],
-    DEL,
+    delimiter,
     barcodes[cmn, "celltype"]
   )
 
@@ -140,7 +139,7 @@ pbasl <- llply(seq_along(samples), function(i) {
   rm(i_mat, e_mat, sub_i, sub_e, r_list, introns)
   mem <- sum(gc()[, 2]) / 2^10 # MB used
   pbmem <- object.size(pb) / 2^20 # MB of pseudobulk
-  log_info(sample_sajr_outs$sample_id[i], " is loaded. Total mem used: ", mem, " Gb. Pb size: ", pbmem, " Gb")
+  scsajr::log_info(sample_sajr_outs$sample_id[i], " is loaded. Total mem used: ", mem, " Gb. Pb size: ", pbmem, " Gb")
 
   # Return the pseudobulk object
   pb
@@ -159,7 +158,7 @@ for (i in seq_along(pbasl)) {
 }
 
 gc()
-log_info("data loaded")
+scsajr::log_info("data loaded")
 
 names(pbasl) <- samples
 cmnbarcodes <- unlist(cmnbarcodesl)
@@ -178,13 +177,13 @@ pbas$seg$ncell <- ncell
 
 ## Build pseudobulk metadata
 barcodes <- barcodes[cmnbarcodes, ]
-pbmeta <- as.data.frame(do.call(rbind, strsplit(colnames(pbas$i), DEL, fixed = TRUE)))
+pbmeta <- as.data.frame(do.call(rbind, strsplit(colnames(pbas$i), delimiter, fixed = TRUE)))
 colnames(pbmeta) <- c("sample_id", "celltype")
 rownames(pbmeta) <- colnames(pbas$i)
 
 # Number of cells in each pseudobulk
 pbmeta$ncells <- as.numeric(
-  table(paste0(barcodes$sample_id, DEL, barcodes$celltype))
+  table(paste0(barcodes$sample_id, delimiter, barcodes$celltype))
 )[rownames(pbmeta)]
 
 # Add strand info from SAJR outputs
@@ -193,7 +192,7 @@ rownames(s2s) <- s2s$sample_id
 pbmeta$strand <- s2s[pbmeta$sample_id, "strand"]
 
 ## Wrap into a SummarizedExperiment object and save
-pbas_se <- makeSummarizedExperiment(pbas, pbmeta)
-saveRDS(barcodes, paste0(out.dir, "/cell_meta.rds"))
-saveRDS(pbas_se, paste0(out.dir, "/pbas.rds"))
-log_info("pseudobulk is made")
+pbas_se <- scsajr::make_summarized_experiment(pbas, pbmeta)
+saveRDS(barcodes, paste0(out_dir, "/cell_meta.rds"))
+saveRDS(pbas_se, paste0(out_dir, "/pbas.rds"))
+scsajr::log_info("pseudobulk is made")
