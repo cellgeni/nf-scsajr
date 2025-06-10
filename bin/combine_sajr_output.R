@@ -1,10 +1,10 @@
 options(error = function(e) quit("no", 1))
 
 library(Matrix)
-library(visutils)
 library(doMC)
 library(plyr)
 library(scsajr)
+library(visutils)
 
 
 ## Parse arguments
