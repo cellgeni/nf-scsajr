@@ -1,7 +1,7 @@
 FROM r-base:4.4.1
 
 # install system dependencies
-RUN  apt-get update && \
+RUN apt-get update && \
   apt-get install -y --no-install-recommends \
   liblzma-dev libbz2-dev libgsl-dev libcairo2-dev libpng-dev \
   build-essential libcurl4-openssl-dev libfftw3-dev libgfortran5 \
