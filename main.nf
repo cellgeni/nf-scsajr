@@ -22,7 +22,7 @@ process make_ref {
   path 'segments.sajr'
   path 'functional_annotation'
 
-  script:
+  shell:
   '''
   # Convert GTF to SAJR reference format
   java -Xmx10G -jar !{projectDir}/bin/sajr.ss.jar \
@@ -31,7 +31,7 @@ process make_ref {
       -ann_out=segments.sajr
   
   # Convert SAJR objects to segments.csv, gtf.rds, and functional_annotation
-  Rscript !{projectDir}/bin/prepare_reference.R !{gtf} segments.sajr
+  Rshell !{projectDir}/bin/prepare_reference.R !{gtf} segments.sajr
   '''
 }
 
@@ -43,7 +43,7 @@ process get_data {
   output:
   tuple val(id), path('*bam'), path('*bam.bai')
 
-  script:
+  shell:
   '''
   if "!{params.bam_on_irods}"; then
     iget -f -v -K "!{bam_path}" "!{id}.bam"
@@ -63,7 +63,7 @@ process make_chr_list {
   output:
   path ('chrs.txt'), emit: rds
 
-  script:
+  shell:
   '''
   # larger chrs first to be used for strand determination
   cut -f 1 !{ref}/segments.sajr | grep -v '#' | sort | uniq -c | sort -nr | sed  's/^[[:blank:]]*//' | cut -d ' ' -f2 > chrs.txt
@@ -78,7 +78,7 @@ process determine_strand {
   output:
   tuple val(id), path(bam_path), path(bami_path), path(ref), stdout
 
-  script:
+  shell:
   '''
   mkdir p m
   
@@ -106,7 +106,7 @@ process run_sajr_per_chr {
   output:
   tuple val(id), val(chr), path(id), path(bam_path), path(bami_path), val(strand)
 
-  script:
+  shell:
   '''
   mkdir !{id}
   !{projectDir}/bin/run_sajr.sh !{bam_path} !{id}/!{chr} !{ref}/segments.sajr !{strand} !{chr} -1 !{params.use_bam_dedupl} > !{id}/!{chr}.log
@@ -126,9 +126,9 @@ process combine_sajr_output {
   output:
   path ('rds'), emit: rds
 
-  script:
+  shell:
   '''
-  Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  Rshell !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
@@ -145,9 +145,9 @@ process remake_pseudobulk {
   output:
   path ('rds'), emit: rds
 
-  script:
+  shell:
   '''
-  Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
+  Rshell !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
@@ -166,9 +166,9 @@ process postprocess {
   path ('rds'), emit: rds
   path 'examples'
 
-  script:
+  shell:
   '''
-  Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  Rshell !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
@@ -182,7 +182,7 @@ process generate_summary {
   output:
   path 'summary.html'
 
-  script:
+  shell:
   '''
   cp !{projectDir}/bin/summary.Rmd .
   cp !{projectDir}/bin/sajr_utils.R .
