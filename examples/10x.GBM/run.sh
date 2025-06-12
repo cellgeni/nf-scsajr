@@ -23,6 +23,6 @@ nextflow run nf-scsajr \
  --SAMPLEFILE samples.tsv \
  --BARCODEFILE barcodes.tsv \
  --minsamples 1 \
- -resume
+ --ref ./nf-scsajr/ref/human_2020A_chr
 
 # it should generate output similar to one in "output" dir (plus rds files)
