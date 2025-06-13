@@ -31,7 +31,7 @@ process make_ref {
       -ann_out=segments.sajr
   
   # Convert SAJR objects to segments.csv, gtf.rds, and functional_annotation
-  Rshell !{projectDir}/bin/prepare_reference.R !{gtf} segments.sajr
+  Rscript !{projectDir}/bin/prepare_reference.R !{gtf} segments.sajr
   '''
 }
 
@@ -128,7 +128,7 @@ process combine_sajr_output {
 
   shell:
   '''
-  Rshell !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  Rscript !{projectDir}/bin/combine_sajr_output.R !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
@@ -147,7 +147,7 @@ process remake_pseudobulk {
 
   shell:
   '''
-  Rshell !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
+  Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
@@ -168,7 +168,7 @@ process postprocess {
 
   shell:
   '''
-  Rshell !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
+  Rscript !{projectDir}/bin/postprocess.R !{rds} !{params.mincells} !{params.minsamples} !{samples} !{barcodes} !{ref} !{projectDir}/bin !{params.ncores}
   '''
 }
 
