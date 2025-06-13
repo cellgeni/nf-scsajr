@@ -56,10 +56,10 @@ scsajr::log_info("segment filtering: ", nrow(pbas_all), " -> ", nrow(pbas))
 
 ## Differential-splicing tests
 # Test all celltypes together
-pbas@metadata$all_celltype_test <- scsajr::test_all_groups_as(pbas, "celltype", .parallel = TRUE)
+pbas@metadata$all_celltype_test <- scsajr::test_all_groups_as(pbas, "celltype", parallel = TRUE)
 
 # Find marker segments per celltype
-pbas@metadata$markers <- scsajr::find_marker_as(pbas, "celltype", .parallel = TRUE, verbose = TRUE)
+pbas@metadata$markers <- scsajr::find_marker_as(pbas, "celltype", parallel = TRUE, verbose = TRUE)
 
 scsajr::log_info("diff AS finished")
 
@@ -174,7 +174,7 @@ gc()
 dir.create(paste0(out_dir, "/examples_coverage"))
 dir.create("examples")
 
-l_ply(seq_along(markers$seg_id), function(i) {
+plyr::l_ply(seq_along(markers$seg_id), function(i) {
   sid <- markers$seg_id[i]
   gid <- segs[sid, "gene_id"]
 
