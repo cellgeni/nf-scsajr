@@ -15,7 +15,7 @@ args <- commandArgs(trailingOnly = TRUE)
 writeLines(args, "params.txt")
 
 # args = readLines('params.txt')
-out_dir <- args[1] # output directory???
+out_dir <- args[1]
 mincells <- as.integer(args[2])
 minsamples <- as.integer(args[3])
 path2samples <- args[4]
