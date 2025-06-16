@@ -136,7 +136,7 @@ pbasl <- llply(seq_along(samples), function(i) {
   )
 
   # Clean up the loaded data to free memory
-  rm(i_mat, e_mat, sub_i, sub_e, r_list, introns)
+  rm(i_mat, e_mat, sub_i, sub_e, r_list, intron_mat)
   mem <- sum(gc()[, 2]) / 2^10 # MB used
   pbmem <- object.size(pb) / 2^20 # MB of pseudobulk
   scsajr::log_info(sample_sajr_outs$sample_id[i], " is loaded. Total mem used: ", mem, " Gb. Pb size: ", pbmem, " Gb")
