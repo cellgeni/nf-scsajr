@@ -183,8 +183,8 @@ rownames(pbmeta) <- colnames(pbas$i)
 
 # Number of cells in each pseudobulk
 pbmeta$ncells <- as.numeric(
-  table(paste0(barcodes$sample_id, delimiter, barcodes$celltype))
-)[rownames(pbmeta)]
+  table(paste0(barcodes$sample_id, delimiter, barcodes$celltype))[rownames(pbmeta)]
+)
 
 # Add strand info from SAJR outputs
 s2s <- unique(sajr_outs[, c("sample_id", "strand")])
