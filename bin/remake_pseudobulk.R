@@ -49,7 +49,7 @@ scsajr::log_info("initializing finished")
 
 
 ## Load SAJR
-pbasl <- llply(seq_len(nrow(samples)), function(i) {
+pbasl <- plyr::llply(seq_len(nrow(samples)), function(i) {
   fname <- list.files(path2rds, pattern = samples$sample_id[i], full.names = TRUE)
   if (length(fname) != 1) {
     stop(paste0("Sample '", samples$sample_id[i], "' has more than one rds!"))
