@@ -26,9 +26,11 @@ doMC::registerDoMC(ncores)
 
 
 ## Load inputs
-sajr_outs <- utils::read.table(path2sajr_outs, sep = " ")
-colnames(sajr_outs) <- c("sample_id", "chr", "sajr_out", "bam_path", "strand")
-
+sajr_outs <- utils::read.table(
+  path2sajr_outs,
+  sep = " ",
+  col.names = c("sample_id", "chr", "sajr_out", "bam_path", "strand")
+)
 barcodes <- utils::read.table(path2barcodes,
   sep = "\t",
   col.names = c("sample_id", "barcode", "celltype")
@@ -54,7 +56,7 @@ scsajr::log_info("initializing output directory finished")
 ## Load SAJR outputs and make pseudobulks per sample in parallel
 samples <- unique(sajr_outs$sample_id)
 
-pbasl <- llply(seq_along(samples), function(i) {
+pbasl <- plyr::llply(seq_along(samples), function(i) {
   # For each sample, extract SAJR output lists
   sample <- samples[i]
   sample_sajr_outs <- subset(sajr_outs, sample_id == sample)
@@ -136,9 +138,9 @@ pbasl <- llply(seq_along(samples), function(i) {
   )
 
   # Clean up the loaded data to free memory
-  rm(i_mat, e_mat, sub_i, sub_e, r_list, intron_mat)
-  mem <- sum(gc()[, 2]) / 2^10 # MB used
-  pbmem <- object.size(pb) / 2^20 # MB of pseudobulk
+  rm(i_mat, e_mat, sub_i, sub_e, pb_i, pb_e, r_list, intron_mat)
+  mem <- round(sum(gc()[, 2]) / 2^10, digits = 2) # MB used
+  pbmem <- round(object.size(pb) / 2^30, digits = 2)
   scsajr::log_info(sample_sajr_outs$sample_id[i], " is loaded. Total mem used: ", mem, " Gb. Pb size: ", pbmem, " Gb")
 
   # Return the pseudobulk object
