@@ -63,8 +63,8 @@ mds_sgn <- stats::cmdscale(1 - cor_sgn, k = 2)
 ct2col <- visutils::char2col(pb$celltype)
 
 par(mfrow = c(3, 1), tcl = -0.2, mgp = c(1.3, 0.3, 0), mar = c(3, 3, 1.5, 0), oma = c(0, 0, 0, 0), bty = "n", lwd = 2)
-plotMDS(mds_all, pb$celltype, ct2col, pb$sample_id, main = paste0("Filtered (", length(pb), ")"))
-plotMDS(mds_sgn, pb$celltype, ct2col, pb$sample_id, main = paste0("Significant (", sum(sgn), ")"))
+scsajr::plot_mds(mds_all, pb$celltype, ct2col, pb$sample_id, main = paste0("Filtered (", length(pb), ")"))
+scsajr::plot_mds(mds_sgn, pb$celltype, ct2col, pb$sample_id, main = paste0("Significant (", sum(sgn), ")"))
 plot.new()
 legend(graphics::grconvertX(0, "nfc", "user"), graphics::grconvertY(1, "npc", "user"),
   xpd = NA, bty = "n", pch = 19, col = ct2col, legend = names(ct2col), title = "Celltypes",
