@@ -42,7 +42,7 @@ gene_descr$descr <- rownames(gene_descr)
 gene_descr$name <- rownames(gene_descr)
 
 # Save the processed data
-utils::write.csv(seg, "segments.csv")
+utils::write.csv(segments, "segments.csv")
 saveRDS(gtf, "gtf.rds")
 dir.create("functional_annotation")
 saveRDS(gene_descr, "functional_annotation/gene.descr.rds")
