@@ -18,7 +18,8 @@ segments <- SAJR::loadSAData(sajr_path)
 segments <- scsajr::add_is_coding_by_ens_gtf(gtf_path = gtf_path, segments)
 
 # Assign segment types (e.g. ALT, EXN, INT)
-segments <- SAJR::setSplSiteTypes(segments, sajr_path)$segments
+segments <- SAJR::setSplSiteTypes(segments, sajr_path)
+segments <- segments$seg
 
 # Compute segment lengths
 segments$length <- segments$stop - segments$start + 1
@@ -37,8 +38,8 @@ segments$is_exon <- paste(segments$gene_id, segments$start, segments$stop) %in%
 
 # Build gene description data frame
 gene_descr <- SAJR::loadGData(sajr_path)$gene
-gene_descr$name <- rownames(gene_descr)
 gene_descr$descr <- rownames(gene_descr)
+gene_descr$name <- rownames(gene_descr)
 
 # Save the processed data
 utils::write.csv(seg, "segments.csv")
