@@ -69,7 +69,7 @@ perct <- pbas@metadata$markers
 pv <- pbas@metadata$all_celltype_test
 
 # Build a universe of all genes
-gene_uni <- unique(rowData(
+gene_uni <- unique(SummarizedExperiment::rowData(
   scsajr::filter_segments_and_samples(
     pbas_all,
     seg_min_sd = 0,
