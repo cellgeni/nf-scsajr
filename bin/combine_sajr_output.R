@@ -56,7 +56,7 @@ scsajr::log_info("initializing output directory finished")
 
 
 ## Load SAJR outputs and make pseudobulks per sample in parallel
-samples <- sort(unique(sajr_outs$sample_id))
+samples <- unique(sajr_outs$sample_id)
 
 pbasl <- plyr::llply(seq_along(samples), function(i) {
   # For each sample, extract SAJR output lists
