@@ -60,6 +60,7 @@ pbasl <- plyr::llply(seq_along(samples), function(i) {
   # For each sample, extract SAJR output lists
   sample <- samples[i]
   sample_sajr_outs <- subset(sajr_outs, sample_id == sample)
+  sample_sajr_outs <- sample_sajr_outs[order(sample_sajr_outs$chr), ]
 
   # Load exon,intron matrices for each chromosome of the sample
   r_list <- lapply(seq_len(nrow(sample_sajr_outs)), function(j) {
