@@ -31,6 +31,8 @@ sajr_outs <- utils::read.table(
   sep = "\t",
   col.names = c("sample_id", "chr", "sajr_out", "bam_path", "strand")
 )
+sajr_outs <- sajr_outs[order(sajr_outs$sample_id, sajr_outs$chr), ]
+
 barcodes <- utils::read.table(path2barcodes,
   sep = "\t",
   col.names = c("sample_id", "barcode", "celltype")
@@ -60,7 +62,6 @@ pbasl <- plyr::llply(seq_along(samples), function(i) {
   # For each sample, extract SAJR output lists
   sample <- samples[i]
   sample_sajr_outs <- subset(sajr_outs, sample_id == sample)
-  sample_sajr_outs <- sample_sajr_outs[order(sample_sajr_outs$chr), ]
 
   # Load exon,intron matrices for each chromosome of the sample
   r_list <- lapply(seq_len(nrow(sample_sajr_outs)), function(j) {
