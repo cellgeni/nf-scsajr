@@ -27,7 +27,7 @@ doMC::registerDoMC(ncores)
 
 
 ## Load inputs
-samples <- utils::read.table(path2samples, sep = " ", col.names = c("sample_id", "bam_path"))
+samples <- utils::read.table(path2samples, sep = "\t", col.names = c("sample_id", "bam_path"))
 barcodes <- utils::read.table(
   path2barcodes,
   sep = "\t",

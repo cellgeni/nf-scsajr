@@ -203,7 +203,7 @@ workflow repseudobulk {
   ch_ref = Channel.fromPath(params.ref)
   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
   ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
-  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+  bam_path_file = ch_data.collectFile { item -> ["bam_paths.tsv", "${item[0]}\t${item[1]}\n"] }
 
   remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
   postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
@@ -228,11 +228,11 @@ workflow {
   // Run SAJR per chromosome
   ch_data = ch_data.combine(ch_chrs)
   ch_data | run_sajr_per_chr | set { sajr_outs }
-  sajrout_path_file = sajr_outs.collectFile { item -> ["sajr_outs.txt", item[0] + " " + item[1] + " " + item[2] + " " + item[3] + " " + item[5] + "\n"] }
+  sajrout_path_file = sajr_outs.collectFile { item -> ["sajr_outs.tsv", "${item[0]}\t${item[1]}\t${item[2]}\t${item[3]}\t${item[5]}\n"] }
 
   // Pseudobulk aggregation
   combine_sajr_output(sajrout_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
-  bam_path_file = ch_data.collectFile { item -> ["bam_paths.txt", item[0].toString() + " " + item[1] + "\n"] }
+  bam_path_file = ch_data.collectFile { item -> ["bam_paths.tsv", "${item[0]}\t${item[1]}\n"] }
 
   // Post-processing & filtering
   postprocess(combine_sajr_output.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())

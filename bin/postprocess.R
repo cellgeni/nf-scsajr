@@ -31,8 +31,8 @@ doMC::registerDoMC(ncores)
 
 ## Load inputs
 pbas_all <- readRDS(file.path(out_dir, "pbas.rds"))
-samples <- read.table(path2samples, sep = " ", col.names = c("sample_id", "bam_path"))
-barcodes <- read.table(path2barcodes, sep = "\t", col.names = c("sample_id", "barcode", "celltype"))
+samples <- utils::read.table(path2samples, sep = "\t", col.names = c("sample_id", "bam_path"))
+barcodes <- utils::read.table(path2barcodes, sep = "\t", col.names = c("sample_id", "barcode", "celltype"))
 
 gtf <- readRDS(file.path(path2ref, "gtf.rds"))
 gene_descr <- readRDS(file.path(path2ref, "functional_annotation/gene.descr.rds"))

@@ -28,7 +28,7 @@ doMC::registerDoMC(ncores)
 ## Load inputs
 sajr_outs <- utils::read.table(
   path2sajr_outs,
-  sep = " ",
+  sep = "\t",
   col.names = c("sample_id", "chr", "sajr_out", "bam_path", "strand")
 )
 barcodes <- utils::read.table(path2barcodes,
