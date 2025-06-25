@@ -133,23 +133,23 @@ process combine_sajr_output {
 }
 
 
-process remake_pseudobulk {
-  label "pseudobulk"
+// process remake_pseudobulk {
+//   label "pseudobulk"
 
-  input:
-  path samples
-  path barcodes
-  path ref
-  val n_samples
+//   input:
+//   path samples
+//   path barcodes
+//   path ref
+//   val n_samples
 
-  output:
-  path ('rds'), emit: rds
+//   output:
+//   path ('rds'), emit: rds
 
-  shell:
-  '''
-  Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
-  '''
-}
+//   shell:
+//   '''
+//   Rscript !{projectDir}/bin/remake_pseudobulk.R !{samples} !{barcodes} !{params.preprocessed_rds} !{ref} !{projectDir}/bin !{params.ncores}
+//   '''
+// }
 
 
 process postprocess {
@@ -198,17 +198,17 @@ workflow reference {
 }
 
 
-workflow repseudobulk {
-  ch_barcodes = Channel.fromPath(params.BARCODEFILE)
-  ch_ref = Channel.fromPath(params.ref)
-  ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
-  ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
-  bam_path_file = ch_data.collectFile { item -> ["bam_paths.tsv", "${item[0]}\t${item[1]}\n"] }
+// workflow repseudobulk {
+//   ch_barcodes = Channel.fromPath(params.BARCODEFILE)
+//   ch_ref = Channel.fromPath(params.ref)
+//   ch_sample_list = params.SAMPLEFILE != null ? Channel.fromPath(params.SAMPLEFILE) : errorMessage()
+//   ch_sample_list | flatMap { it.readLines() } | map { it -> [it.split()[0], it.split()[1]] } | get_data | set { ch_data }
+//   bam_path_file = ch_data.collectFile { item -> ["bam_paths.tsv", "${item[0]}\t${item[1]}\n"] }
 
-  remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
-  postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
-  generate_summary(postprocess.out.rds)
-}
+//   remake_pseudobulk(ch_sample_list, Channel.fromPath(params.BARCODEFILE), ch_ref, ch_sample_list.countLines())
+//   postprocess(remake_pseudobulk.out.rds, bam_path_file, ch_barcodes, ch_ref, ch_sample_list.countLines())
+//   generate_summary(postprocess.out.rds)
+// }
 
 
 workflow {
