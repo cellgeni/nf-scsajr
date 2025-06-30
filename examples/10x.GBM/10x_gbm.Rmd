@@ -1,0 +1,413 @@
+---
+title: "10x_GBM example"
+# author: "Akito Shima (ASUQ), Pasha Mazin (iaaka)"
+output:
+  html_document:
+    self_contained: true
+---
+
+### Install packages (run once)
+```{r Install packages (run once)}
+# install.packages("BiocManager")
+# BiocManager::install("EBImage")
+# BiocManager::install("GenomicAlignments")
+# BiocManager::install("clusterProfiler")
+# devtools::install_github("cellgeni/visutils")
+# devtools::install_github("mamarkevi/plotCoverage")
+```
+
+### Load packages
+```{r Load packages, message = FALSE, cache = TRUE}
+library(Seurat)
+library(plotCoverage)
+library(clusterProfiler)
+library(Matrix)
+
+## Not yet packaged
+source("https://raw.githubusercontent.com/cellgeni/nf-scsajr/refs/heads/main/bin/sajr_utils.R")
+```
+
+### Set working directory
+```{r Set working directory, cache = TRUE}
+data_path <- "." # path to 10x.GBM example folder
+setwd(data_path)
+```
+
+### Load reference
+```{r Load gene description, cache = TRUE}
+# gene.descr[dataframe]: gene descriptions
+gene.descr_path <- "../../ref/human_2020A/functional_annotation/gene.descr.rds"
+gene.descr <- readRDS(gene.descr_path)
+str(gene.descr)
+# View(gene.descr)
+```
+
+```{r Load gtf, cache = TRUE}
+# gtf[dataframe]: GTF file with gene annotations
+gtf_path <- "../../ref/human_2020A/gtf.rds"
+gtf <- readRDS(gtf_path)
+str(gtf)
+# View(gtf)
+```
+
+
+### Load input data
+```{r Load input data, cache = TRUE}
+## Refer run.sh how to generate samples.tsv and bardocs.tsv files
+
+# Sample -> bam file (scRNA data mapped to refernce genome)
+# `echo -e "sample\t$(pwd)/alignment.bam" > samples.tsv`
+samples <- read.table("./input/samples.tsv", col.names = c("sample_id", "bam_path"))
+
+# Sample -> barcode, celltype
+# awk -F, 'BEGIN { OFS="\t" }; NR>1 {print  "sample",$1,$2}' analysis/clustering/graphclust/clusters.csv > barcodes.tsv
+barcodes <- read.table("./input/barcodes.tsv", col.names = c("sample_id", "barcode", "celltype"))
+rownames(barcodes) <- paste0(barcodes$sample_id, "|", barcodes$barcode)
+
+# Definition of splicing segments
+segs_path <- "../../ref/human_2020A/segments.csv"
+segs <- read.csv(segs_path, row.names = 1)
+```
+
+---  
+  
+## Inspect pipeline output
+
+### Load Pseudobulk Splicing Data
+```{r Load Pseudobulk Splicing Data, cache = TRUE}
+# pbas.rds: Pseudobulk AS segments data for all segments
+# pb_as_filtered.rds [Summerized Experiments]: Pseudobulk AS segments data filtered by coverage
+pbasf_path <- "./output/rds/pb_as_filtered.rds"
+pbasf <- readRDS(pbasf_path)
+
+slotNames(pbasf)
+```
+
+| Column            | Meaning                                                                  |
+| ----------------- | ------------------------------------------------------------------------ |
+| `Rows`            | Splicing segments                                                        |
+| `Cols`            | (sample, cell-type) pseudobulks                                          |
+| `Assays`          | `i`: inclusion junction, `e`: exclusion junction, `psi`: percent spliced |
+| `Metadata`        | Differential-splicing test results                                       |
+
+<br><br>
+
+#### Row: Information about segments (features)
+| Column            | Meaning                                                          |
+| ----------------- | ---------------------------------------------------------------- |
+| `feature_id`      | unique ID from Ensembl gene ID “ENSG00000188976.s7”              |
+| `gene_id`         | Ensembl gene ID (e.g. “ENSG00000188976”)                         |
+| `type`            | segment type (e.g. “EXN” for exon, “ALT” for alternative region) |
+| `position`        | location within transcript (e.g. “INTERNAL”)                     |
+| `sites`           | splice‐site pattern (e.g. “ad” = acceptor–donor)                 |
+| `length`          | width of the segment in bp                                       |
+| `is_exon`         | logical: is this a cassette exon?                                |
+| `cod`, `cod.gene` | coding status of the segment (within CDS)                        |
+| `ncell`           | number of single cells with coverage ≥10 for this segment        |
+| `nna`             | how many pseudobulks had `NA` for psi (insufficient reads)       |
+| `sd`              | standard deviation of ψ across pseudobulks                       |
+
+
+```{r rowRanges, cache = TRUE}
+SummarizedExperiment::rowRanges(pbasf)[1:3]
+# View(pbasf@rowRanges)
+```
+
+<br><br>
+
+#### colData: Information about pseudobulks (per sample/celltype)
+| Column            | Meaning                                                          |
+| ----------------- | ---------------------------------------------------------------- |
+| `sample_id`       | original sample ID                                               |
+| `celltype`        | the celltype (cluster)                                           |
+| `ncells`          | cells aggregated into the pseudobulk                             |
+| `strand`          | strand orientation of the coverage                               |
+
+```{r colData, cache = TRUE}
+pbasf@colData
+```
+
+<br><br>
+
+#### assays
+| Assay name | Contents                                                   |
+| ---------- | ---------------------------------------------------------- |
+| `i`        | inclusion junction counts                                  |
+| `e`        | exclusion junction counts                                  |
+| `psi`      | percent-spliced-in $\frac{i}{(i+e)}$;  NA if $i+e<10$      |
+
+```{r assays, cache = TRUE}
+pbasf@assays
+SummarizedExperiment::assay(pbasf, "i")[1:5, 1:4]
+SummarizedExperiment::assay(pbasf, "e")[1:5, 1:4]
+SummarizedExperiment::assay(pbasf, "psi")[1:5, 1:4]
+```
+
+<br><br>
+
+#### metadata: postprocessing results
+- `all_celltype_test`
+  - `group`/`group_fdr` — test statistics & FDR
+  - `low_state`, `high_state` — celltype with lowest and highest
+  - `dpsi` — difference in psi between groups
+- `markers`
+  - `pv` — p-value per segment and celltype
+  - `fdr` — FDR per segment and celltype
+  - `dpsi` — difference in psi per segment and celltype
+- `go` — GO enrichment results
+- `ipro` — domain enrichment results
+
+```{r metadata, cache = TRUE}
+names(pbasf@metadata)
+head(S4Vectors::metadata(pbasf)$all_celltype_test)
+str(S4Vectors::metadata(pbasf)$markers)
+str(S4Vectors::metadata(pbasf)$go)
+str(S4Vectors::metadata(pbasf)$ipro)
+```
+
+<br><br>
+
+
+### Find differentially spliced segments
+
+#### Results comparing all celltypes simultaneously $\text{fdr} < 0.05$
+```{r all_celltype_test, eval=FALSE, cache = TRUE}
+subset(
+  pbasf@metadata$all_celltype_test,
+  !is.na(dpsi) & group_fdr < 0.05
+)
+```
+
+#### Results of comparing each celltype against the rest is stored as three (pv, fdr, dpsi) $\text{segment} * \text{celltype}$ matrices
+```{r markers, cache = TRUE}
+pbasf@metadata$markers$fdr[1:2, ]
+pbasf@metadata$markers$dpsi[1:2, ]
+```
+
+#### Markers segments selection
+markers: $\text{fdr} < 0.05$, $|\text{dpsi}| > 0.5$, at most 2 segments per celltype
+```{r selectMarkers, eval=FALSE, cache = TRUE}
+# selectMarkers only uses output of per-celltype tests
+# lets find at most two marker segments per celltype, ensuring that each segment is reported only once
+selectMarkers(pbasf@metadata$markers, n = 2, dpsi_thr = 0.5, clean_duplicates = TRUE)
+```
+
+```{r selectAllMarkers, eval=FALSE, cache = TRUE}
+# selectAllMarkers also takes results of "all celltypes together" test
+# it gives priority to markers (they are marked by is_marker field)
+
+# SelectAllMarkers rely on selectMarkers and SelectMarkersFromAllCelltypeTest
+selectAllMarkers(pbasf@metadata$markers, pbasf@metadata$all_celltype_test, dpsi_thr = 0.5, n = Inf)
+```
+
+
+### Load gene expression data
+This dataset is targeted; some neuronal genes were enriched, while others remain.
+AS analyses were performed on all genes, so we will take the raw matrix and subset only the barcodes.
+
+```{r Load gene expression data, cache = TRUE}
+ge <- Seurat::Read10X_h5("./input/raw_feature_bc_matrix.h5", use.names = FALSE) # Load 10x h5 file
+ge <- Seurat::CreateSeuratObject(ge) # Wrapping into Seurat object
+```
+
+```{r Subset gene expression data, cache = TRUE}
+ge <- ge[, barcodes$barcode] # Keep only cells annotated in barcodes.tsv
+ge$barcode <- colnames(ge) # Add barcode as a column
+colnames(ge) <- paste0("sample|", colnames(ge)) # Rename column names to include sample_id in barcodes
+ge$celltype <- barcodes[colnames(ge), "celltype"] # Add pre-computed celltype labels from barcodes.tsv
+```
+
+```{r Normalisation, warning=FALSE, cache = TRUE}
+# Just use standard Seurat pipeline to re-cluster cells
+ge <- Seurat::NormalizeData(ge) # Log-normalise UMI counts
+ge <- Seurat::FindVariableFeatures(ge) # Find highly variable features
+# VariableFeatures(ge)
+ge <- Seurat::ScaleData(ge)
+```
+
+```{r PCA and UMAP, message=FALSE, cache = TRUE}
+ge <- Seurat::RunPCA(ge)
+ge <- Seurat::FindNeighbors(ge)
+ge <- Seurat::FindClusters(ge)
+ge <- Seurat::RunUMAP(ge, dims = 1:30)
+Seurat::DimPlot(ge, reduction = "umap", group.by = c("celltype", "seurat_clusters"))
+
+# Here we have just one sample, lets add sample_id to make code compatible with multiple sample design
+ge$sample_id <- "sample"
+```
+
+#### Convert Seurat to SummarizedExperiment & pseudobulk expression
+```{r Convert Seurat to SummarizedExperiment, cache = TRUE}
+genes <- gene.descr[rownames(ge), ]
+rowRanges <- GenomicRanges::GRanges(genes$chr,
+  IRanges(start = genes$start, end = genes$end),
+  strand = ifelse(genes$strand == 1, "+", ifelse(genes$strand == -1, "-", "*")),
+  feature_id = rownames(genes)
+)
+genes$chr <- genes$start <- genes$end <- genes$strand <- NULL
+
+S4Vectors::elementMetadata(rowRanges)[names(genes)] <- genes
+
+sce <- SummarizedExperiment(
+  assays = list(counts = ge[["RNA"]]$counts),
+  rowRanges = rowRanges,
+  colData = ge@meta.data
+)
+
+pbge <- pseudobulk(sce, c("sample_id", "celltype")) # calculate pseudobulk by celltype
+SummarizedExperiment::assay(pbge, "cpm") <- calcCPM(pbge)
+```
+
+#### Visualise markers
+```{r Visualise markers, cache = TRUE}
+markers <- selectAllMarkers(pbasf@metadata$markers, pbasf@metadata$all_celltype_test, dpsi_thr = 0.5, n = 4)
+# par(mfrow = c(1, 2), mar = c(3, 6, 1, 6), oma = c(0, 12, 0, 0))
+par(mfrow = c(1, 2), mar = c(2, 4, 1, 4), oma = c(0, 4, 0, 0))
+markerHeatmap(
+  pbasf, pbge, "celltype",
+  psi_scale = FALSE,
+  cpm_scale = TRUE,
+  markers = markers,
+  gene_names_col = "name"
+)
+```
+
+### Coverage plots
+From pre-saved files, we can replot coverage for one of examples generated by the pipeline
+
+```{r Coverage plots, cache = TRUE}
+sid <- "ENSG00000092841.s17"
+covs <- readRDS(paste0("./output/rds/examples_coverage/", sid, ".rds"))
+plotSegmentCoverage(
+  sid,
+  chr = covs[[1]]$chr,
+  start = covs[[1]]$start,
+  stop = covs[[1]]$end,
+  covs = covs,
+  data_as = pbasf,
+  data_ge = pbge,
+  groupby = "celltype",
+  gene.descr = gene.descr,
+  plot.junc.only.within = FALSE,
+  ylim_by_junc = TRUE,
+  gtf = gtf,
+  oma = c(4, 4, 4, 1)
+)
+```
+
+
+we can zoom in into alternative exon and select only
+and look only on most divergent celltypes
+```{r Zoom in into alternative exon, cache = TRUE}
+plotSegmentCoverage(
+  sid,
+  chr = covs[[1]]$chr,
+  start = 56160210,
+  stop = 56161500,
+  covs = covs,
+  data_as = pbasf,
+  data_ge = pbge,
+  celltypes = c("6", "9", "5"),
+  groupby = "celltype",
+  gene.descr = gene.descr,
+  plot.junc.only.within = FALSE,
+  ylim_by_junc = TRUE,
+  gtf = gtf,
+  oma = c(4, 4, 4, 1)
+)
+```
+
+
+### Differential splicing
+Let's compare just two celltypes. We'll take cluster 6 and 5 as they demonstrated divergent splicing in MYL6
+```{r Differential splicing, message = FALSE, warning= FALSE, cache = TRUE}
+cl5to6 <- testPairAS(pbasf, "celltype", c("5", "6"))
+cl5to6[!is.na(cl5to6$dpsi) & cl5to6$fdr < 0.05 & abs(cl5to6$dpsi) > 0.9, ]
+```
+
+```{r Inspect segment and plot, cache = TRUE}
+sid <- "ENSG00000217930.s9"
+pbasf@metadata$all_celltype_test[sid, ]
+pbasf@metadata$markers$fdr[sid, ]
+
+# _coverage plots from bam file ####
+# when segment of interest was not plotted by pipeline
+# or if celltype anotation has changed, one may need to plot coverage from bam files
+covs <- NULL # plotSegmentCoverage returns coverage object that can be used next time
+covs <- plotSegmentCoverage(
+  sid,
+  start = 4343250,
+  stop = 4351500,
+  covs = covs,
+  data_as = pbasf,
+  data_ge = pbge,
+  groupby = "celltype",
+  gene.descr = gene.descr,
+  celltypes = c("5", "6"),
+  plot.junc.only.within = FALSE,
+  ylim_by_junc = TRUE,
+  gtf = gtf,
+  samples = samples,
+  barcodes = barcodes,
+  oma = c(4, 4, 4, 1)
+)
+# so exon seems to be included in cluster 5 and excluded in cluster 6 hovewer coverage is quite low
+```
+
+```{r Save coverage for future use, cache = TRUE}
+# We can save coverage for future use.
+# It is not very important in case of singe sample, but with tens of samples and celltypes extracting coverage from bam files can take a while.
+# saveRDS(covs, paste0("./output/rds/examples_coverage/", sid, ".rds"))
+```
+
+### Domain enrichment analyses
+```{r Domain enrichment analyses, cache = TRUE}
+# Load segment to domain annotation and domain description
+domain2seg <- readRDS("../../ref/human_2020A/functional_annotation/domain2seg.df.rds")
+domain_descr <- readRDS("../../ref/human_2020A/functional_annotation/all_domain_descr.rds")
+
+# Load all segments
+pbas_all <- readRDS("./output/rds/pbas.rds")
+
+# Take all domains that have description
+domain2seg <- domain2seg$all
+domain2seg <- domain2seg[domain2seg$domain %in% domain_descr$ENTRY_AC, ]
+
+domain_sites2use <- "ad" # focus i=on cassette exons only
+# Select background set
+# All genes that have at least one segment with reasonable coverage
+gene_uni <- filterSegmentsAndSamples(pbas_all, seg_min_sd = 0, celltype_min_samples = 1, sample_min_ncells = 30)
+gene_uni <- unique(rowData(gene_uni)$gene_id)
+seg_uni <- rownames(pbas_all)[segs$is_exon & segs$sites %in% domain_sites2use & segs$gene_id %in% gene_uni]
+
+cl5to6sgn <- cl5to6[!is.na(cl5to6$dpsi) & cl5to6$fdr < 0.05 & abs(cl5to6$dpsi) > 0.1, ]
+sids <- list(
+  cl6 = rownames(cl5to6sgn)[cl5to6sgn$dpsi > 0.1],
+  cl5 = rownames(cl5to6sgn)[cl5to6sgn$dpsi < -0.1]
+)
+
+ipro <- clusterProfiler::compareCluster(sids,
+  fun = "enricher",
+  universe = seg_uni,
+  pAdjustMethod = "BH",
+  TERM2GENE = domain2seg,
+  TERM2NAME = domain_descr[, c("ENTRY_AC", "ENTRY_NAME")]
+)
+
+clusterProfiler::dotplot(ipro)
+```
+
+### Re-pseudobulk
+```{r Re-pseudobulk, cache = TRUE}
+# Using new cell clusters
+# redo pbasf, pbge, barcodes
+raw <- readRDS("./output/rds/sample.rds")
+barcodes_new <- ge@meta.data[c("sample_id", "barcode", "seurat_clusters")]
+
+raw$i <- raw$i[, rownames(barcodes_new)]
+raw$e <- raw$e[, rownames(barcodes_new)]
+raw$seg <- segs
+pbas_new <- makeSummarizedExperiment(raw, barcodes_new)
+pbas_new <- pseudobulk(pbas_new, "seurat_clusters")
+pbasf_new <- filterSegmentsAndSamples(pbas_new, seg_min_sd = 0.1, celltype_min_samples = 1, sample_min_ncells = 30)
+```

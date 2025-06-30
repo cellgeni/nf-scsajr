@@ -1,33 +1,48 @@
-options(error=function(e)quit('no',1))
+options(error = function(e) quit("no", 1))
 
+# devtools::install_github("iaaka/sajr")
+# devtools::install_github("cellgeni/scsajr")
 library(SAJR)
 library(plotCoverage)
+library(scsajr)
 
-# annotation in gtf, converted annotation in sajr, path2bin
-args = commandArgs(trailingOnly=TRUE)
+# Read command-line args: GTF path and SAJR segments file (converted annotation)
+args <- commandArgs(trailingOnly = TRUE)
+gtf_path <- args[1]
+sajr_path <- args[2]
 
-gtf_path = args[1]
-sajr_path = args[2]
+# Load SAJRsegments object
+segments <- SAJR::loadSAData(sajr_path)
 
-seg = SAJR::loadSAData(sajr_path)
-segs = addIsCogingByEnsGTF(ens.gtf = gtf_path,segs)
-seg = SAJR::setSplSiteTypes(seg,sajr_path)$seg
-seg$length = seg$stop-seg$start+1
+# Annotate which segments are coding exons
+segments <- scsajr::add_is_coding_by_ens_gtf(gtf_path = gtf_path, segments)
 
-gtf = loadEnsGTF(gtf_path)
-if(is.null(gtf$transcript_name))
-  gtf$transcript_name = gtf$transcript_id
+# Assign segment types (e.g. ALT, EXN, INT)
+segments <- SAJR::setSplSiteTypes(segments, sajr_path)
+segments <- segments$seg
 
+# Compute segment lengths
+segments$length <- segments$stop - segments$start + 1
 
-# which segments are identical to exons
-ef = gtf$feature=='exon'
-seg$is_exon = paste(seg$gene_id,seg$start,seg$stop) %in% paste(gtf$gene_id[ef],gtf$start[ef],gtf$stop[ef])
+# Load original GTF file
+gtf <- plotCoverage::loadEnsGTF(gtf_path)
+if (is.null(gtf$transcript_name)) {
+  gtf$transcript_name <- gtf$transcript_id
+}
 
-gene_descr =  SAJR::loadGData(sajr_path)$gene
-gene_descr$name = gene_descr$descr = rownames(gene_descr)
+# Flag which segments are identical to exons
+# Compares gene, start, and stop
+ef <- gtf$feature == "exon"
+segments$is_exon <- paste(segments$gene_id, segments$start, segments$stop) %in%
+  paste(gtf$gene_id[ef], gtf$start[ef], gtf$stop[ef])
 
-# save #############
-write.csv(seg,'segments.csv')
-saveRDS(gtf,'gtf.rds')
-dir.create('functional_annotation')
-saveRDS(gene_descr,'functional_annotation/gene.descr.rds')
+# Build gene description data frame
+gene_descr <- SAJR::loadGData(sajr_path)$gene
+gene_descr$descr <- rownames(gene_descr)
+gene_descr$name <- rownames(gene_descr)
+
+# Save the processed data
+utils::write.csv(segments, "segments.csv")
+saveRDS(gtf, "gtf.rds")
+dir.create("functional_annotation")
+saveRDS(gene_descr, "functional_annotation/gene.descr.rds")
