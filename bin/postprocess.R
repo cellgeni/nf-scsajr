@@ -157,59 +157,65 @@ markers <- scsajr::select_all_markers(
   n = Inf
 )
 
-# Select top 200 by |dpsi| and p-value
-N <- min(200, nrow(markers), max(sum(abs(markers$dpsi) > 0.5), 100))
-markers <- markers[order(abs(markers$dpsi), decreasing = TRUE)[seq_len(N)], ]
-# an attempt to sort examples by both pv and dpsi
-markers <- markers[order(-log10(markers$pv) / 100 + abs(markers$dpsi), decreasing = TRUE), ]
+if (nrow(markers) == 0) {
+  scsajr::log_info("No significant marker segments found. Skipping example plot generation.")
+} else {
+  scsajr::log_info("Found ", nrow(markers), " marker segments.")
 
-# to save RAM we'll keep only data we need for plotting
-pbas_mar <- pbas_all[markers$seg_id, ]
-pbas_all$all <- "all"
-pb_all <- scsajr::pseudobulk(pbas_all, "all")
-gc()
+  # Select top 200 by |dpsi| and p-value
+  N <- min(200, nrow(markers), max(sum(abs(markers$dpsi) > 0.5), 100))
+  markers <- markers[order(abs(markers$dpsi), decreasing = TRUE)[seq_len(N)], ]
+  # an attempt to sort examples by both pv and dpsi
+  markers <- markers[order(-log10(markers$pv) / 100 + abs(markers$dpsi), decreasing = TRUE), ]
+
+  # to save RAM we'll keep only data we need for plotting
+  pbas_mar <- pbas_all[markers$seg_id, ]
+  pbas_all$all <- "all"
+  pb_all <- scsajr::pseudobulk(pbas_all, "all")
+  gc()
 
 
-# For each marker segment, plot coverage
-dir.create(paste0(out_dir, "/examples_coverage"))
-dir.create("examples")
+  # For each marker segment, plot coverage
+  dir.create(paste0(out_dir, "/examples_coverage"))
+  dir.create("examples")
 
-plyr::l_ply(seq_along(markers$seg_id), function(i) {
-  sid <- markers$seg_id[i]
-  gid <- segs[sid, "gene_id"]
+  plyr::l_ply(seq_along(markers$seg_id), function(i) {
+    sid <- markers$seg_id[i]
+    gid <- segs[sid, "gene_id"]
 
-  # get plot coords,a dn previous coverage if exists
-  coors <- scsajr::get_plot_coords_for_seg(sid, pb_all, gene_descr)
-  pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene_descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 12)
+    # get plot coords,a dn previous coverage if exists
+    coors <- scsajr::get_plot_coords_for_seg(sid, pb_all, gene_descr)
+    pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene_descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 12)
 
-  covs <- NULL
-  rdsf <- paste0(out_dir, "/examples_coverage/", sid, ".rds")
-  if (file.exists(rdsf)) {
-    covs <- readRDS(rdsf)
-  }
+    covs <- NULL
+    rdsf <- paste0(out_dir, "/examples_coverage/", sid, ".rds")
+    if (file.exists(rdsf)) {
+      covs <- readRDS(rdsf)
+    }
 
-  covs <- scsajr::plot_segment_coverage(
-    chr = segs[sid, "seqnames"],
-    start = coors$start, stop = coors$stop,
-    covs = covs,
-    sid = sid,
-    data_as = pbas_mar,
-    groupby = "celltype",
-    celltypes = NULL,
-    barcodes = barcodes,
-    samples = samples,
-    gene_descr = gene_descr,
-    plot_junc_only_within = NA,
-    min_junc_cov_f = 0.02,
-    min_junc_cov = 3,
-    ylim_by_junc = TRUE,
-    gtf = gtf,
-    oma = c(6, 14, 3, 1)
-  )
-  dev.off()
-  if (!file.exists(rdsf)) {
-    saveRDS(covs, rdsf)
-  }
-}, .parallel = TRUE)
+    covs <- scsajr::plot_segment_coverage(
+      chr = segs[sid, "seqnames"],
+      start = coors$start, stop = coors$stop,
+      covs = covs,
+      sid = sid,
+      data_as = pbas_mar,
+      groupby = "celltype",
+      celltypes = NULL,
+      barcodes = barcodes,
+      samples = samples,
+      gene_descr = gene_descr,
+      plot_junc_only_within = NA,
+      min_junc_cov_f = 0.02,
+      min_junc_cov = 3,
+      ylim_by_junc = TRUE,
+      gtf = gtf,
+      oma = c(6, 14, 3, 1)
+    )
+    dev.off()
+    if (!file.exists(rdsf)) {
+      saveRDS(covs, rdsf)
+    }
+  }, .parallel = TRUE)
+}
 
 scsajr::log_info("examples finished")
