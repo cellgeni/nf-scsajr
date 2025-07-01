@@ -185,7 +185,6 @@ process generate_summary {
   shell:
   '''
   cp !{projectDir}/bin/summary.Rmd .
-  cp !{projectDir}/bin/sajr_utils.R .
   Rscript -e "wd=getwd();rmarkdown::render('summary.Rmd',
                      output_file = 'summary.html',
                      clean = TRUE)"
