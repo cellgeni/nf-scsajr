@@ -10,18 +10,18 @@ output:
 # knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r, include=FALSE}
+```{r Load packages, message= FALSE, include=FALSE}
 library(Matrix)
 library(SAJR)
 library(clusterProfiler)
 library(ggplot2)
 library(scsajr)
 library(visutils)
-rds_dir <- "rds"
 ```
 
 # Load data
-```{r}
+```{r Load data}
+rds_dir <- "rds"
 pb <- readRDS(paste0(rds_dir, "/pb_as_filtered.rds"))
 
 pv <- pb@metadata$all_celltype_test
@@ -37,7 +37,7 @@ isize <- scsajr::get_dit_plot_size(ipro)
 
 # Input summary
 Number of cells in each celltype * sample
-```{r}
+```{r Input summary}
 ct2sam <- scsajr::cast_xy_table(pb$celltype, pb$sample_id, pb$ncells)
 ct2sam[is.na(ct2sam)] <- 0
 knitr::kable(ct2sam)
@@ -47,7 +47,7 @@ knitr::kable(ct2sam)
 # MDS
 Segments were first filtered by coverage (>9 reads in at least 20% of sample*celltypes) and psi variability (sd>0.1).
 Filtered segments were tested using GLM/LRT using ~celltype model. Segments with fdr < 0.05 and dPSI > 0.3 (between highest and lowest celltype) were considered as significant.
-```{r fig.height=18,fig.width=6}
+```{r MDS plot, fig.height=18,fig.width=6}
 
 if (nrow(pb) == 0) {
   
@@ -100,7 +100,7 @@ if (nrow(pb) == 0) {
 
 # Celltype-specific events
 Here each celltype was tested against all remaining.
-```{r}
+```{r Cellthype-specific events}
 if (nrow(pb) == 0) {
 
   cat("No segments remained after the initial filtering step. Barplot cannot be generated.")
@@ -116,7 +116,7 @@ if (nrow(pb) == 0) {
 ```
 
 # GO enrichment
-```{r, fig.height=gsize[1],fig.width=gsize[2]}
+```{r GO enrichment, fig.height=gsize[1],fig.width=gsize[2]}
 if (!is.null(go) && nrow(go) > 0) {
   clusterProfiler::dotplot(go, label_format = 90) + theme(axis.text.x = element_text(angle = 90))
 } else {
@@ -125,7 +125,7 @@ if (!is.null(go) && nrow(go) > 0) {
 ```
 
 # Domain enrichment
-```{r, fig.height=isize[1],fig.width=isize[2], eval=!is.null(ipro)}
+```{r Domain enrichment, fig.height=isize[1],fig.width=isize[2]}
 if (!is.null(ipro) && nrow(ipro) > 0) {
   clusterProfiler::dotplot(ipro, label_format = 90) + theme(axis.text.x = element_text(angle = 90))
 } else {
