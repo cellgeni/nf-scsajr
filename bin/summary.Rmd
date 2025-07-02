@@ -101,25 +101,35 @@ if (nrow(pb) == 0) {
 # Celltype-specific events
 Here each celltype was tested against all remaining.
 ```{r}
-sgn <- rbind(
-  psi01 = apply(perct$fdr < 0.05 & abs(perct$dpsi) > 0.1 & abs(perct$dpsi) <= 0.5, 2, sum, na.rm = TRUE),
-  psi05 = apply(perct$fdr < 0.05 & abs(perct$dpsi) > 0.5, 2, sum, na.rm = TRUE)
-)
-par(mar = c(10, 4, 1, 1))
-graphics::barplot(sgn, xlab = "", ylab = "# significant segments", legend.text = c("dPSI > 0.1", "dPSI > 0.5"), las = 2)
+if (nrow(pb) == 0) {
+
+  cat("No segments remained after the initial filtering step. Barplot cannot be generated.")
+
+} else {
+  sgn <- rbind(
+    psi01 = apply(perct$fdr < 0.05 & abs(perct$dpsi) > 0.1 & abs(perct$dpsi) <= 0.5, 2, sum, na.rm = TRUE),
+    psi05 = apply(perct$fdr < 0.05 & abs(perct$dpsi) > 0.5, 2, sum, na.rm = TRUE)
+  )
+  par(mar = c(10, 4, 1, 1))
+  graphics::barplot(sgn, xlab = "", ylab = "# significant segments", legend.text = c("dPSI > 0.1", "dPSI > 0.5"), las = 2)
+}
 ```
 
 # GO enrichment
 ```{r, fig.height=gsize[1],fig.width=gsize[2]}
-if (!is.null(go)) {
+if (!is.null(go) && nrow(go) > 0) {
   clusterProfiler::dotplot(go, label_format = 90) + theme(axis.text.x = element_text(angle = 90))
+} else {
+  cat("No significant GO enrichment found.")
 }
 ```
 
 # Domain enrichment
 ```{r, fig.height=isize[1],fig.width=isize[2], eval=!is.null(ipro)}
-if (!is.null(ipro)) {
+if (!is.null(ipro) && nrow(ipro) > 0) {
   clusterProfiler::dotplot(ipro, label_format = 90) + theme(axis.text.x = element_text(angle = 90))
+} else {
+  cat("No significant InterPro domain enrichment found.")
 }
 ```
 
