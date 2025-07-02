@@ -48,28 +48,54 @@ knitr::kable(ct2sam)
 Segments were first filtered by coverage (>9 reads in at least 20% of sample*celltypes) and psi variability (sd>0.1).
 Filtered segments were tested using GLM/LRT using ~celltype model. Segments with fdr < 0.05 and dPSI > 0.3 (between highest and lowest celltype) were considered as significant.
 ```{r fig.height=18,fig.width=6}
-psi <- scsajr::calc_psi(pb)
-cor_all <- cor(psi, use = "pair") # cor(t(scale(t(pb$ir),scale = FALSE)),use = 'pair')
-cor_all[is.na(cor_all)] <- 0
-mds_all <- stats::cmdscale(1 - cor_all, k = 2)
 
-sgn <- pv$group_fdr < 0.05 & pv$dpsi > 0.3
-sgn[is.na(sgn)] <- FALSE
-cor_sgn <- cor(psi[sgn, ], use = "pair") # cor(t(scale(t(pb$ir[sgn,]),scale = FALSE)),use = 'pair')
-cor_sgn[is.na(cor_sgn)] <- 0
-mds_sgn <- stats::cmdscale(1 - cor_sgn, k = 2)
+if (nrow(pb) == 0) {
+  
+  cat("No segments remained after the initial filtering step. MDS plots cannot be generated.")
+  
+} else {
+  
+  psi <- scsajr::calc_psi(pb)
+  cor_all <- cor(psi, use = "pair") # cor(t(scale(t(pb$ir),scale = FALSE)),use = 'pair')
+  cor_all[is.na(cor_all)] <- 0
+  mds_all <- stats::cmdscale(1 - cor_all, k = 2)
 
+  # Create the logical vector for significant segments
+  sgn <- pv$group_fdr < 0.05 & pv$dpsi > 0.3
+  sgn[is.na(sgn)] <- FALSE
 
-ct2col <- visutils::char2col(pb$celltype)
+  # Get color scheme
+  ct2col <- visutils::char2col(pb$celltype)
 
-par(mfrow = c(3, 1), tcl = -0.2, mgp = c(1.3, 0.3, 0), mar = c(3, 3, 1.5, 0), oma = c(0, 0, 0, 0), bty = "n", lwd = 2)
-scsajr::plot_mds(mds_all, pb$celltype, ct2col, pb$sample_id, main = paste0("Filtered (", length(pb), ")"))
-scsajr::plot_mds(mds_sgn, pb$celltype, ct2col, pb$sample_id, main = paste0("Significant (", sum(sgn), ")"))
-plot.new()
-legend(graphics::grconvertX(0, "nfc", "user"), graphics::grconvertY(1, "npc", "user"),
-  xpd = NA, bty = "n", pch = 19, col = ct2col, legend = names(ct2col), title = "Celltypes",
-  ncol = ceiling(length(ct2col) / 15)
-)
+  # Set up the plot layout
+  par(mfrow = c(3, 1), tcl = -0.2, mgp = c(1.3, 0.3, 0), mar = c(3, 3, 1.5, 0), oma = c(0, 0, 0, 0), bty = "n", lwd = 2)
+
+  # Plot 1: All filter segments 
+  scsajr::plot_mds(mds_all, pb$celltype, ct2col, pb$sample_id, main = paste0("Filtered (", length(pb), ")"))
+
+  # Check if there are significant segments
+  if (sum(sgn) > 0) {
+    cor_sgn <- cor(psi[sgn, ], use = "pair") # cor(t(scale(t(pb$ir[sgn,]),scale = FALSE)),use = 'pair')
+    cor_sgn[is.na(cor_sgn)] <- 0
+    mds_sgn <- stats::cmdscale(1 - cor_sgn, k = 2)
+
+    # Plot 2: Significant segments
+    scsajr::plot_mds(mds_sgn, pb$celltype, ct2col, pb$sample_id, main = paste0("Significant (", sum(sgn), ")"))
+
+  } else {
+    # If no significant segments, create empty plot with a message
+    plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
+    title(main = "No significant segments found")
+    text(1, 1, "No significant segments found\nwith FDR < 0.05 & dPSI > 0.3", cex = 1.2)
+  }
+
+  # Plot 3: Legend
+  plot.new()
+  legend(graphics::grconvertX(0, "nfc", "user"), graphics::grconvertY(1, "npc", "user"),
+    xpd = NA, bty = "n", pch = 19, col = ct2col, legend = names(ct2col), title = "Celltypes",
+    ncol = ceiling(length(ct2col) / 15)
+  )
+}
 ```
 
 # Celltype-specific events
