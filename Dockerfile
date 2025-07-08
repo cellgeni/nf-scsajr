@@ -17,7 +17,7 @@ RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
   install.packages(c("devtools","randomcoloR","knitr","doMC","RcppHungarian","hdf5r","reshape"),dependencies=TRUE,upgrade="never");'
 
 RUN R -e 'install.packages("BiocManager"); \
-  options(error=function(e)quit(status=2,save="no"),warn=2); \
+  options(timeout=6000,download.file.method="wget",error=function(e)quit(status=2,save="no"),warn=2); \
   BiocManager::install(c("BSgenome.Mmusculus.UCSC.mm10","BSgenome.Hsapiens.UCSC.hg38","hexbin","clusterProfiler","org.Hs.eg.db","EBImage"),upgrade="never");'
 
 RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
