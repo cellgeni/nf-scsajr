@@ -12,7 +12,6 @@ RUN apt-get update && \
   openjdk-17-jdk openjdk-17-jre \
   cargo libmagick++-dev libhdf5-dev
 
-
 # install R packages
 RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
   install.packages(c("devtools","randomcoloR","knitr","doMC","RcppHungarian","hdf5r","reshape"),dependencies=TRUE,upgrade="never");'
@@ -34,7 +33,7 @@ RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
   devtools::install_github(c("cellgeni/visutils","mamarkevi/plotCoverage","iaaka/sajr"),upgrade = "never")'
 
 RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
-  devtools::install_github(c("cellgeni/scsajr"),upgrade = "never")'
+  devtools::install_github("cellgeni/scsajr@v25-189")'
 
 COPY Dockerfile /docker/
 RUN chmod -R 755 /docker
