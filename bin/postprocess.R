@@ -9,7 +9,7 @@ library(scsajr)
 library(visutils)
 
 
-## Parse arguments
+## Parse arguments ######
 # Rscript postprocess.R pbsas, mincells, minsamples, path2samples, path2barcodes, path2ref, path2bin, ncores
 args <- commandArgs(trailingOnly = TRUE)
 writeLines(args, "params.txt")
@@ -29,7 +29,7 @@ ncores <- as.numeric(args[8])
 doMC::registerDoMC(ncores)
 
 
-## Load inputs
+## Load inputs ######
 pbas_all <- readRDS(file.path(out_dir, "pbas.rds"))
 samples <- utils::read.table(path2samples, sep = "\t", col.names = c("sample_id", "bam_path"))
 barcodes <- utils::read.table(path2barcodes, sep = "\t", col.names = c("sample_id", "barcode", "celltype"))
@@ -42,7 +42,7 @@ domain2seg <- scsajr::read_rds_if_exists(file.path(path2ref, "functional_annotat
 domain_descr <- scsajr::read_rds_if_exists(file.path(path2ref, "functional_annotation/all_domain_descr.rds"))
 
 
-## Filtering
+## Filtering ######
 # Removes pseudbulk groups with fewer than `minsamples` samples
 #  and segments with fewer than `mincells` cells
 pbas <- scsajr::filter_segments_and_samples(
@@ -54,7 +54,7 @@ scsajr::log_info("samples*celltype filtering: ", ncol(pbas_all), " -> ", ncol(pb
 scsajr::log_info("segment filtering: ", nrow(pbas_all), " -> ", nrow(pbas))
 
 
-## Differential-splicing tests
+## Differential-splicing tests ######
 # Test all celltypes together
 pbas@metadata$all_celltype_test <- scsajr::test_all_groups_as(pbas, "celltype", parallel = TRUE)
 
@@ -64,7 +64,7 @@ pbas@metadata$markers <- scsajr::find_marker_as(pbas, "celltype", parallel = TRU
 scsajr::log_info("diff AS finished")
 
 
-## Gene Ontology (GO) enrichment analysis
+## Gene Ontology (GO) enrichment analysis ######
 perct <- pbas@metadata$markers
 pv <- pbas@metadata$all_celltype_test
 
@@ -112,7 +112,7 @@ pbas@metadata$go <- tryCatch(
 scsajr::log_info("GO finished")
 
 
-## InterPro domain enrichment analysis
+## InterPro domain enrichment analysis ######
 # Use only cassette exons
 if (!is.null(domain2seg)) {
   # take only domains with description
@@ -148,7 +148,7 @@ saveRDS(pbas, file.path(out_dir, "pb_as_filtered.rds"))
 scsajr::log_info("interpro finished")
 
 
-## Example coverage plots
+## Example coverage plots ######
 # pbas = readRDS(paste0(out.dir,'/pb_as_filtered.rds'))
 markers <- scsajr::select_all_markers(
   pbas@metadata$markers,
@@ -185,7 +185,7 @@ if (nrow(markers) == 0) {
 
     # get plot coords,a dn previous coverage if exists
     coors <- scsajr::get_plot_coords_for_seg(sid, pb_all, gene_descr)
-    pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene_descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 12)
+    pdf(paste0("examples/", substr(10000 + i, 2, 100), "_", gene_descr[gid, "name"], "_", sid, ".pdf"), w = 12, h = 3+length(unique(barcodes$celltype)))
 
     covs <- NULL
     rdsf <- paste0(out_dir, "/examples_coverage/", sid, ".rds")
