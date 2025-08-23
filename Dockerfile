@@ -33,7 +33,7 @@ RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
   devtools::install_github(c("cellgeni/visutils","mamarkevi/plotCoverage","iaaka/sajr"),upgrade = "never")'
 
 RUN R -e 'options(error=function(e)quit(status=2,save="no"),warn=2); \
-  devtools::install_github("cellgeni/scsajr@v25-189")'
+  devtools::install_github("cellgeni/scsajr@v25-235")'
 
 COPY Dockerfile /docker/
 RUN chmod -R 755 /docker
