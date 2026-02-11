@@ -2,7 +2,6 @@
 
 Pipeline to quantify alternative splicing in single cell data. It uses segments - part of gene between two adjacent splicing sites - as a feature. For each segment it quantify number of inclusion (confirming inclusion of the segment into RNA) and exclusion UMIs (confirming exclusion of the segment from RNA) in each barcode. Resultant matrices are extremely sparse, so it calcualtes per sample*celltype pseudobulks and uses GLM with quasibinomial distribution to look for differences between celltype. Afterwards it performs GO and interpro domain enrichment analyses and generates html output, coverage plot for up to 100 best events and rds files with counts and pv.
 
-
 It uses [java read counter](https://github.com/iaaka/sajr-java-sc) for read counting and [sajr](https://github.com/iaaka/sajr) for statistical analyses of alternative. splicing
 
 
